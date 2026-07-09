@@ -16,3 +16,11 @@ export function supabaseForToken(accessToken) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
+
+// Cliente anónimo (sin token de usuario) para las rutas públicas: respeta RLS
+// como lo haría un visitante no autenticado (ej. vidriera y calendario públicos).
+export const supabasePublic = env.mockAuth
+  ? null
+  : createClient(env.supabase.url, env.supabase.anonKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });

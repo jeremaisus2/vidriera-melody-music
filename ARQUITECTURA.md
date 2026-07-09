@@ -83,22 +83,46 @@ src/
     eventos.routes.js
     admin.routes.js      protegido con requireRole('admin')
     superadmin.routes.js protegido con requireRole('super_admin')
+  repos/
+    publicaciones.repo.js  vidriera_publicaciones + vidriera_publicaciones_ediciones
+    eventos.repo.js         vidriera_eventos, sponsors, rsvp, reacciones, galería, testimonios
+    superadmin.repo.js      vidriera_academias, vidriera_academia_modulos, vidriera_modulos
+    uploads.repo.js         compresión (sharp) + subida a Supabase Storage
+scripts/
+  crear-admin.mjs        alta de un admin real (Auth + vidriera_perfiles)
+  setup-storage.mjs      alta idempotente del bucket vidriera-imagenes
 db/
   schema.sql             DDL con prefijo vidriera_
   seed.sql               catálogo de módulos, categorías, academia de ejemplo
+  policies.sql           RLS completo para las 13 tablas
 ```
 
-Los controladores todavía no están implementados: las rutas responden `501` de forma
-explícita para que la superficie de la API quede documentada y navegable.
+Los controladores viven en `src/controllers/` y usan `src/repos/` para hablar con
+Supabase (una capa de repositorios con las mismas firmas por dominio: publicaciones,
+eventos, super-admin). Los repos son el único lugar que conoce nombres de tabla y
+detalles de PostgREST/RLS.
 
 ## 7. Seguridad y datos
 
-- Dos clientes Supabase: `supabaseAdmin` (service_role, salta RLS — solo backend) y
-  `supabaseForToken` (propaga el JWT del usuario, respeta RLS).
-- Se recomienda activar **RLS** en todas las tablas y escribir políticas por rol
-  (`db/policies.sql`, pendiente).
-- Imágenes en Supabase Storage; **comprimir antes de subir** (plan free: 1 GB storage,
-  500 MB DB; volumen esperado ~100 familias / ~100 imágenes).
+- Tres clientes Supabase (`src/config/supabase.js`): `supabaseAdmin` (service_role,
+  salta RLS — moderación y super-admin), `supabaseForToken` (propaga el JWT del
+  usuario, respeta RLS — operaciones de familias/clientes autenticados) y
+  `supabasePublic` (anon, sin token — rutas públicas de vidriera y calendario).
+- **RLS** activo en las 13 tablas vía `db/policies.sql`. Las operaciones con
+  `supabaseAdmin` filtran manualmente por `academia_id` en cada repo (service_role
+  no aplica RLS, así que ese scope es la única barrera contra que un admin de una
+  academia toque datos de otra).
+- Imágenes en Supabase Storage, bucket **`vidriera-imagenes`**: público de lectura
+  (bucket `public: true`, se sirve por URL directa sin pasar por RLS), escritura
+  solo por `supabaseAdmin` — no existe ninguna política de INSERT/UPDATE/DELETE
+  para anon/authenticated sobre `storage.objects` para este bucket, así que con RLS
+  habilitado por defecto quedan bloqueados automáticamente (verificado: un usuario
+  autenticado real que intenta subir directo a Storage, sin pasar por el backend,
+  recibe "new row violates row-level security policy"). El endpoint
+  `POST /api/uploads/imagen` recibe el archivo (multer, en memoria), lo comprime con
+  `sharp` (máx. 1600px de lado, WebP calidad 75) y devuelve la URL pública; esa URL
+  es la que se guarda en `imagen_url` (plan free: 1 GB storage, 500 MB DB; volumen
+  esperado ~100 familias / ~100 imágenes, cada una entre ~50 KB y 300 KB ya comprimida).
 
 ## 8. Fuera de alcance (por ahora)
 

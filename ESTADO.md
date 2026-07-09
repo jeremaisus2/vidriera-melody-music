@@ -46,66 +46,214 @@ npm run dev
 
 ## ETAPA 2 — Conexión real a Supabase
 
-### Prerequisitos antes de empezar
+### Estado de la infraestructura
 
-1. **Crear `.env` con credenciales reales**
-   ```
-   PORT=3000
-   NODE_ENV=development
-   MOCK_AUTH=false
-   APP_URL=https://tu-dominio.com
-   SUPABASE_URL=https://TU-PROYECTO.supabase.co
-   SUPABASE_ANON_KEY=...
-   SUPABASE_SERVICE_ROLE_KEY=...
-   SUPABASE_JWT_SECRET=...
-   ```
-   Confirmar si el proyecto Supabase será compartido con otros productos GIZA
-   (acad_, nieve_) o dedicado. Las tablas `vidriera_` no colisionan en ningún caso.
+- `.env` con credenciales reales cargado. **Ojo**: `SUPABASE_URL` y `APP_URL` habían
+  quedado cruzados (URL del proyecto Supabase pegada en `APP_URL` y el placeholder
+  `https://TU-PROYECTO.supabase.co` en `SUPABASE_URL`) — corregido. `APP_URL` quedó
+  provisoriamente en `http://localhost:3000` hasta definir dominio de despliegue.
+- `MOCK_AUTH=false` — modo Etapa 1 (`X-Mock-Rol`) queda inactivo: los controladores
+  ya no usan `store.js` (se borró, no quedaba ninguna referencia) y los repos
+  requieren clientes reales de Supabase.
+- `db/schema.sql` y `db/seed.sql` — **✅ aplicados** (confirmado: `vidriera_academias`
+  trae la fila "Melody Music" y `vidriera_modulos` el catálogo completo).
+- `db/policies.sql` — **✅ aplicado y verificado**. Se confirmó que RLS quedó
+  efectivamente *habilitado* (no solo que las políticas existen) con dos pruebas de
+  comportamiento, ya que no tengo `psql`/CLI/connection string en este entorno para
+  consultar `pg_catalog` directamente:
+  - Diferencial de lectura anon vs. service_role sobre tablas con datos reales:
+    `vidriera_academias` (1 fila) y `vidriera_modulos` (4 filas) devuelven 0 filas
+    con la anon key sin token, y sus valores reales con `service_role` — solo posible
+    si RLS está activo y filtrando. `vidriera_categorias` (pública) devuelve las 5
+    filas en ambos casos, como corresponde a su política `using (true)`.
+  - Insert con la anon key contra `vidriera_academias` devuelve el error de Postgres
+    `42501 — new row violates row-level security policy`, que solo ocurre con RLS
+    habilitado (un simple problema de permisos daría "permission denied", no este mensaje).
+  - Flujo completo autenticado (crear publicación → moderar → aprobar → editar →
+    aprobar edición; crear evento → RSVP → reacción toggle → testimonio) corrido de
+    nuevo con un usuario de prueba real *después* de aplicar las políticas: los 14
+    pasos pasaron bajo RLS activo, confirmando que las políticas no bloquean las
+    operaciones legítimas que ya migré.
+  - **Para que vos lo confirmes también** en el SQL Editor, corré:
+    ```sql
+    -- 1. RLS habilitado en las 13 tablas (esperado: rowsecurity = true en las 13)
+    select tablename, rowsecurity
+    from pg_tables
+    where schemaname = 'public' and tablename like 'vidriera_%'
+    order by tablename;
 
-2. **Aplicar en el SQL editor de Supabase, en orden**:
-   - `db/schema.sql` — 12 tablas con prefijo `vidriera_` + índices  ← **pendiente**
-   - `db/seed.sql`   — catálogo de módulos, categorías, academia "Melody Music"  ← **pendiente**
-   - `db/policies.sql` — RLS completo para las 12 tablas  ← **✅ LISTO PARA APLICAR**
+    -- 2. Las 27 políticas quedaron creadas (esperado: 27 en total)
+    select tablename, count(*) as policies
+    from pg_policies
+    where schemaname = 'public' and tablename like 'vidriera_%'
+    group by tablename
+    order by tablename;
+    ```
+  - Nota menor: la documentación decía "12 tablas" en varios lugares; son **13**
+    (contando `vidriera_publicaciones_ediciones` y `vidriera_evento_sponsors` aparte).
+    Corregido en `ARQUITECTURA.md`.
+  - Decisiones clave del archivo (sin cambios): funciones `security definer`
+    `vidriera_rol()`/`vidriera_academia_id()`; `vidriera_perfiles` sin UPDATE/DELETE de
+    cliente; `vidriera_publicaciones` UPDATE de dueño solo en pending/rejected y vuelve
+    a pending; ediciones solo para publicaciones approved; vistas y conteos de
+    RSVP/reacciones siempre por `supabaseAdmin`.
 
-3. **`db/policies.sql` — decisiones clave ya tomadas**:
-   - Funciones helper `vidriera_rol()` y `vidriera_academia_id()` (`security definer`) evitan subqueries repetidas.
-   - El backend usa `supabaseAdmin` (service_role) para moderación y super-admin → salta RLS. Las políticas son defensa en profundidad y guardan la lectura con `supabaseForToken`.
-   - `vidriera_perfiles`: sin UPDATE/DELETE de cliente → evita escalada de privilegios (nadie puede cambiar su propio rol).
-   - `vidriera_publicaciones` UPDATE de cliente: solo en estado `pending` o `rejected`; el `with check` obliga a que quede `'pending'` → no puede auto-aprobarse.
-   - `vidriera_publicaciones_ediciones` INSERT: solo para publicaciones en estado `approved` (las pending/rejected se editan en-place).
-   - Conteos públicos de RSVP y reacciones → el backend usa `supabaseAdmin` (los clientes solo leen sus propios registros).
-   - Incremento de `vistas` → siempre `supabaseAdmin`; ninguna política permite UPDATE anónimo.
+### Migración de la capa mock a Supabase real — ✅ completa
 
-### Migración de la capa mock a Supabase real
+Se creó `src/repos/` (`publicaciones.repo.js`, `eventos.repo.js`, `superadmin.repo.js`)
+con las mismas firmas que tenía `store.js`, ahora contra Supabase. Los 6 controladores
+quedaron migrados en el orden que habíamos planeado:
 
-Con `MOCK_AUTH=false`, `requireAuth` ya usa Supabase Auth (el código está escrito).
-Lo que hay que migrar son los **controladores**: reemplazar las llamadas a `store.js`
-por queries a Supabase, tabla por tabla. Orden sugerido:
+1. `publicaciones.controller.js` → `vidriera_publicaciones` + `_ediciones`, con
+   `supabasePublic` para lectura pública y `req.supabase` (JWT del usuario) para
+   crear/proponer ediciones/listar "mis publicaciones".
+2. `admin.controller.js` (moderación) → mismas tablas con `supabaseAdmin`.
+3. `eventos.controller.js` → `vidriera_eventos` + sponsors/rsvp/reacciones/galería/testimonios.
+4. `admin.controller.js` (eventos/galería/sponsors) → mismas tablas con `supabaseAdmin`.
+5. `superadmin.controller.js` → `vidriera_academias` + `vidriera_academia_modulos`.
+6. `admin.controller.js` (estadísticas) → `.select('id, nombre, categoria, estado, vistas')` + agregación en JS.
 
-1. `publicaciones.controller.js` → `vidriera_publicaciones` + `vidriera_publicaciones_ediciones`
-2. `admin.controller.js` (moderación) → mismas tablas, con `supabaseAdmin` (salta RLS)
-3. `eventos.controller.js` → `vidriera_eventos`, `vidriera_rsvp`, `vidriera_reacciones`, `vidriera_galeria`, `vidriera_testimonios`
-4. `admin.controller.js` (eventos/galería) → mismas tablas
-5. `superadmin.controller.js` → `vidriera_academias`, `vidriera_academia_modulos`
-6. `admin.controller.js` (estadísticas) → agregación con `.select('id, nombre, categoria, estado, vistas')`
+**Decisión no obvia tomada durante la migración**: el mock (`store.js`) nunca
+filtraba por `academia_id` en las operaciones de moderación/eventos/galería porque
+todo el testing usaba una sola academia. Al pasar a Supabase real con `supabaseAdmin`
+(que saltea RLS) ese filtro pasa a ser la única barrera de scoping — se agregó
+`.eq('academia_id', ...)` en `moderarPublicacion`, `moderarEdicion`, `editarEvento`,
+`eliminarEvento`, `setSponsors`, `agregarFotoGaleria` y `eliminarFotoGaleria`. Las
+rutas *públicas* (vidriera y calendario) siguen sin scope por academia, igual que en
+Etapa 1 — sigue siendo una limitación conocida para cuando haya más de una academia
+activa en la misma instalación (ver "Decisiones pendientes").
 
-   Recomendación: introducir una capa `src/repos/` que exporte las mismas
-   firmas que `store.js` pero usando Supabase, para poder hacer el switch sin
-   tocar los controladores.
+**Verificado end-to-end contra el proyecto Supabase real** (no solo sintaxis):
+lectura de `vidriera_academias`/`vidriera_modulos` con `supabaseAdmin`, y el flujo
+completo crear publicación (pending) → moderar → aprobar → proponer edición sobre
+publicación approved → aparece en cola de moderación → aprobar edición → se aplica
+al dato público, usando un usuario de prueba temporal (creado y borrado en la misma
+corrida, sin dejar rastro en Supabase Auth).
 
-### Otras tareas de Etapa 2
+### Alta de usuarios reales — ✅ hecho
 
-- Upload de imágenes a **Supabase Storage** con compresión previa (sharp o browser-side).
-  Bucket sugerido: `vidriera-imagenes`. Las rutas de galería y publicaciones reciben
-  hoy `imagen_url` como string; en Etapa 2 se agrega un endpoint de upload que devuelve
-  la URL pública del storage y se guarda esa URL en la tabla.
-- Handoff visual (bundle de Claude Design) → implementar frontend sobre esta API.
+`auth.users` estaba vacío; en vez de crear el primer admin a mano desde el dashboard,
+se armó `scripts/crear-admin.mjs` (`npm run crear-admin -- <email> <password> [slug]`):
+da de alta el usuario en Supabase Auth con `supabaseAdmin.auth.admin.createUser` y
+upsertea su fila en `vidriera_perfiles` (`rol: 'admin'`, `academia_id` de la academia
+del slug, `melody-music` por defecto). Se creó y verificó de punta a punta un admin
+real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
+`GET /api/admin/moderacion` con su JWT respondió 200 a través del servidor HTTP real
+(no solo llamando al repo directo).
+
+### Upload de imágenes a Supabase Storage — ✅ hecho
+
+- Bucket **`vidriera-imagenes`** creado (idempotente, vía `scripts/setup-storage.mjs`
+  con `supabaseAdmin.storage.createBucket`, no hizo falta pedirle al usuario que lo
+  cree a mano desde el dashboard): `public: true` (lectura pública, se sirve por URL
+  directa sin pasar por RLS), `fileSizeLimit: '5MB'`, `allowedMimeTypes: ['image/webp']`.
+- **Política de acceso**: lectura pública por el flag del bucket; escritura solo para
+  `supabaseAdmin` (service_role) — no se creó ninguna política de INSERT/UPDATE/DELETE
+  para anon/authenticated sobre `storage.objects` de este bucket, así que con RLS
+  habilitado por defecto en todo proyecto Supabase quedan bloqueados automáticamente
+  sin necesidad de escribir una policy explícita.
+- `POST /api/uploads/imagen` (nuevo, `requireAuth`, cualquier rol autenticado):
+  recibe el archivo con `multer` (buffer en memoria, límite 10MB crudos, solo
+  jpeg/png/webp), lo comprime con `sharp` (máx. 1600px de lado manteniendo aspect
+  ratio, WebP calidad 75) y lo sube a `academia_id/uuid.webp` con `supabaseAdmin`.
+  Devuelve `{ imagen_url }` — esa URL es la que el frontend guarda al crear/editar
+  una publicación o al agregar una foto a la galería. `imagen_url` en las tablas
+  sigue siendo un string libre (no se agregó validación de formato de URL): el flujo
+  recomendado es subir primero acá, pero no se bloquean URLs externas si hiciera
+  falta pegar una a mano (mismo criterio que ya usaba el seed de galería con picsum.photos).
+- **Verificado end-to-end**: subida real de una imagen de 3000×2000 con el JWT del
+  admin recién creado → quedó en 1600×1067 WebP de ~3KB; la URL pública devuelta se
+  descargó sin autenticación (200, `image/webp`); un `POST` sin token dio 401 en la
+  API; y —yendo un paso más allá del endpoint— un intento de subida **directa** a
+  Storage (bypaseando el backend) tanto con la anon key sin token como con el JWT
+  real del admin, dieron `"new row violates row-level security policy"`: confirma
+  que ni siquiera un usuario autenticado legítimo puede escribir si no pasa por
+  `service_role`. Los archivos y objetos de prueba se borraron al final.
+
+### Lo que falta para cerrar Etapa 2
+
+1. **Handoff visual** → implementar frontend sobre esta API.
+2. (Menor, no bloqueante) Decidir si las rutas públicas de vidriera/calendario deben
+   filtrar por academia cuando convivan varias academias en la misma instalación —
+   hoy devuelven datos de todas.
+3. Confirmar si el proyecto Supabase es compartido con otros productos GIZA o dedicado
+   — evidencia indirecta de que ya es compartido: el proyecto trae un bucket `logos`
+   previo, de otro producto GIZA.
+4. Reemplazar `APP_URL` provisorio (`https://vidriera.giza.app`, dominio placeholder
+   sin registrar — ver nota abajo) por el dominio real una vez definido.
 
 ### Decisiones pendientes de confirmar
 
-- Supabase compartido vs. dedicado.
-- Estrategia de compresión de imágenes (cliente o servidor).
-- Dominio/subdominio de despliegue (`APP_URL`).
+- Supabase compartido vs. dedicado (otros productos GIZA) — ver nota arriba.
+- **`APP_URL`**: `https://vidriera.giza.app` es un placeholder de nombre (no un
+  dominio comprado/registrado), elegido para que el QR de cada evento codifique
+  algo con forma de URL real en vez de `localhost`. Hay que swapearlo por el
+  dominio/subdominio real antes de imprimir o compartir cualquier QR de producción
+  (`.env` → `APP_URL`, ver `src/config/env.js`).
+- Scoping por academia en rutas públicas (vidriera/calendario) para cuando conviva
+  más de una academia en la misma instalación — hoy devuelven datos de todas.
+
+---
+
+### Sesión 2026-07-09 #5 — `APP_URL` provisorio
+
+- `.env` → `APP_URL=https://vidriera.giza.app`. Es un dominio placeholder (no
+  registrado), elegido siguiendo el patrón de nombre del producto para que el QR
+  de cada evento codifique algo con forma de URL real en vez de `localhost`.
+  Pendiente reemplazarlo por el dominio/subdominio real (ver "Decisiones pendientes").
+
+---
+
+### Sesión 2026-07-09 #4 — Upload de imágenes a Supabase Storage
+
+- Bucket `vidriera-imagenes` creado vía `scripts/setup-storage.mjs` (público de
+  lectura, escritura solo `service_role`, sin políticas explícitas — RLS por
+  defecto alcanza).
+- Nuevo módulo `POST /api/uploads/imagen`: `multer` (memoria) + `sharp` (resize
+  1600px, WebP calidad 75) + subida a Storage. Dependencias agregadas: `sharp`, `multer`.
+- `errorHandler.js` ahora mapea `multer.MulterError` a 400 en vez de 500.
+- Verificado end-to-end: upload real con JWT de admin, resize confirmado
+  (3000×2000 → 1600×1067), lectura pública sin auth, 401 sin token, y RLS
+  bloqueando escritura directa a Storage incluso con un JWT de usuario real
+  (bypaseando el backend). Archivos de prueba borrados al final.
+- **Próximo paso**: definir `APP_URL` real y arrancar el frontend sobre esta API
+  (ver "Lo que falta para cerrar Etapa 2" arriba).
+
+---
+
+### Sesión 2026-07-09 #3 — Alta del primer admin real
+
+- Creado `scripts/crear-admin.mjs`: da de alta un usuario en Supabase Auth y lo
+  vincula en `vidriera_perfiles` como admin de una academia (slug configurable,
+  `melody-music` por defecto).
+- Usado para crear el primer admin real (`giza@bariloche.com`, Melody Music) y
+  verificado de punta a punta: login contra Supabase Auth + `GET /api/admin/moderacion`
+  con su JWT respondiendo 200 a través del servidor HTTP real.
+
+---
+
+### Sesión 2026-07-09 #2 — Verificación de RLS post-`policies.sql`
+
+- Confirmado que RLS quedó *habilitado* (no solo que las políticas existen) con
+  pruebas de comportamiento vía la API REST (ver detalle arriba). No pude correr
+  `pg_tables`/`pg_policies` directamente (sin `psql`/CLI en este entorno) — le pasé
+  al usuario las dos queries exactas para que las corra y confirme sobre las 13 tablas.
+- Re-corrido el flujo end-to-end completo (publicaciones + eventos/RSVP/reacciones/
+  testimonios) con un usuario de prueba real, esta vez con RLS activo: 14/14 pasos OK.
+  Usuario y filas de prueba borrados al final, sin dejar rastro.
+- Corregido "12 tablas" → "13 tablas" en `ARQUITECTURA.md` (conteo real de `schema.sql`).
+- **Próximo paso**: alta del primer usuario/admin real y endpoint de upload a Storage
+  (ver "Lo que falta para cerrar Etapa 2" arriba).
+
+---
+
+### Sesión 2026-07-09 #1 — Conexión real a Supabase + migración de controladores
+
+- Corregido `.env` (URLs cruzadas) y `MOCK_AUTH=false`.
+- Creada la capa `src/repos/` y migrados los 6 controladores de `store.js` a Supabase real.
+- `src/data/store.js` eliminado (sin referencias).
+- Verificación end-to-end del flujo de publicaciones contra el proyecto real (antes
+  de aplicar `policies.sql`, ver sesión #2 para la re-verificación con RLS activo).
 
 ---
 
@@ -114,7 +262,6 @@ por queries a Supabase, tabla por tabla. Orden sugerido:
 - Creado `db/policies.sql` con políticas para las 12 tablas del schema.
 - Dos funciones helper `security definer`: `vidriera_rol()` y `vidriera_academia_id()`.
 - Decisiones no obvias documentadas en el archivo y en los prerequisitos de Etapa 2.
-- **No aplicado todavía contra Supabase**: se aplica en la próxima sesión, junto con schema.sql y seed.sql.
 
 ---
 

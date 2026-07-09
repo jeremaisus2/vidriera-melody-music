@@ -4,6 +4,7 @@ import { publicacionesRouter } from './publicaciones.routes.js';
 import { eventosRouter } from './eventos.routes.js';
 import { adminRouter } from './admin.routes.js';
 import { superadminRouter } from './superadmin.routes.js';
+import { uploadsRouter } from './uploads.routes.js';
 
 export const apiRouter = Router();
 
@@ -18,3 +19,6 @@ apiRouter.use('/admin', adminRouter);
 
 // Módulo: Panel de super-administrador (GIZA)
 apiRouter.use('/super-admin', superadminRouter);
+
+// Upload de imágenes (Supabase Storage) — usado por publicaciones y galería
+apiRouter.use('/uploads', uploadsRouter);
