@@ -5,11 +5,15 @@ import { eventosRouter } from './eventos.routes.js';
 import { adminRouter } from './admin.routes.js';
 import { superadminRouter } from './superadmin.routes.js';
 import { uploadsRouter } from './uploads.routes.js';
+import { textosRouter } from './textos.routes.js';
 
 export const apiRouter = Router();
 
 // Módulo: Vidriera de emprendimientos
 apiRouter.use('/publicaciones', publicacionesRouter);
+
+// Módulo: Textos fijos editables de la vidriera pública (Etapa D)
+apiRouter.use('/textos', textosRouter);
 
 // Módulo: Calendario de eventos (RSVP, reacciones, galería, testimonios, QR)
 apiRouter.use('/eventos', eventosRouter);

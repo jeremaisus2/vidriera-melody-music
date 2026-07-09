@@ -208,6 +208,91 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-09 #14 — Etapa D: textos fijos editables ("Textos de la página")
+
+Construida la última sección que quedaba en la barra lateral del panel de
+admin. El admin puede editar los 7 títulos/subtítulos fijos de la vidriera
+pública (no contenido dinámico como nombres de publicaciones o eventos) con
+negrita simple, y el cambio se ve en la vidriera real apenas se guarda.
+
+**Catálogo fijo de 7 claves** (`TEXTOS_CATALOGO` en `src/repos/textos.repo.js`,
+única fuente de verdad de qué existe y su valor por defecto):
+`destacado_label`, `vidriera_titulo`, `vidriera_subtitulo`,
+`calendario_titulo`, `momentos_titulo`, `galeria_titulo`,
+`testimonios_titulo`. Identificados releyendo el README del handoff y el
+HTML público — son exactamente los títulos/subtítulos de sección que ya
+existían como texto hardcodeado en `index.html`, ninguno inventado.
+- **Excepción**: `galeria_titulo` ("Galería") no existía como heading propio
+  en el `2a` (desktop) implementado en la sesión #6 — el prototipo desktop
+  original tampoco lo tenía (las fotos van directo después de "Momentos que
+  ya vivimos"), pero el `2b` (mobile) del mismo handoff SÍ tiene "Galería"
+  como heading independiente. Se agregó ese heading al desktop (antes de
+  `#galleryGrid`) para poder tener un texto editable ahí — no es contenido
+  inventado de cero, es un heading que ya estaba en el diseño aprobado, solo
+  que no se había portado a la versión desktop hasta ahora.
+- Deliberadamente afuera: nav del header ("Vidriera"/"Calendario"/etc.),
+  botones, pills, "Sponsors de {evento}" (dinámico, interpola el nombre del
+  evento) — son chrome de interacción o contenido dinámico, no "rótulos
+  editoriales fijos" como pidió el cliente.
+
+**Schema** (`db/migrations/004_textos.sql`, corrida por el usuario en el SQL
+Editor): tabla nueva `vidriera_textos` (`academia_id`, `clave`, `contenido`,
+`negrita` boolean derivado, `unique(academia_id, clave)`). A diferencia de
+las migraciones 001-003 (solo agregaban columnas a tablas ya cubiertas por
+RLS), esta SÍ necesitó política propia — agregada tanto en la migración
+(con guardas `if not exists` sobre `pg_policies` para que sea idempotente,
+`create policy` no soporta `if not exists` nativo) como en `db/policies.sql`
+(select público, write solo admin de su propia academia — mismo patrón que
+`vidriera_eventos`).
+
+**"Negrita simple"**: no es un editor de texto enriquecido — es una
+convención mínima tipo markdown, `**así**`, embebida directo en `contenido`.
+El botón de negrita en el textarea de edición envuelve/desenvuelve la
+selección actual con `**` (usa `selectionStart`/`selectionEnd` del
+textarea); tanto el panel admin como la vidriera pública renderizan
+reemplazando `**texto**` por `<strong>texto</strong>` **después** de escapar
+el contenido (nunca se guarda ni se interpreta HTML, así que el contenido no
+puede inyectar markup). `negrita` en la tabla es un flag derivado (se
+recalcula solo en el backend en cada guardado, no es editable directo) —
+sirve para que el panel admin sepa mostrar algo distinto si hiciera falta,
+hoy no se usa para nada más que eso.
+
+**Endpoints**: `GET /api/textos` (público, sin scoping por academia —
+mismo criterio ya documentado para publicaciones/eventos/destacado: una
+sola academia activa en la práctica) devuelve las 7 claves siempre, mezcla
+lo guardado con el default. `GET /api/admin/textos` (scoping por academia,
+agrega `personalizado: boolean`). `PUT /api/admin/textos/:clave` rechaza
+claves fuera del catálogo con 400 — es la barrera contra crear bloques
+nuevos, que esta etapa no soporta a propósito (pedido explícito del
+cliente).
+
+**Frontend**: `index.html` marca cada heading/subtítulo con
+`data-texto-clave="..."`, conservando el texto hardcodeado como default/
+fallback visible antes de que cargue JS (o si `loadTextos()` falla — se
+degrada en silencio, mismo criterio que `loadDestacado`: no es protagonista,
+no bloquea el resto de la carga). `admin.js` usa delegación de eventos sobre
+`#textosList` en vez de atar listeners fila por fila — las filas se
+reemplazan con `outerHTML` al entrar/salir de edición, así que atar
+listeners por fila hubiera dejado listeners duplicados en las filas que no
+cambiaron en cada re-render.
+
+**Verificado end-to-end con Playwright contra Supabase real**: las 7 filas
+cargan con label + contenido correctos; seleccionar una palabra dentro del
+textarea y togglear negrita la envuelve en `**...**` y el preview en vivo
+muestra `<strong>` de inmediato; guardado confirmado tanto en la fila (vuelve
+a modo lectura con el `<strong>` aplicado) como en la vidriera pública real
+(mismo `<strong>` en el HTML servido); togglear negrita de nuevo sobre la
+selección exacta la saca limpiamente, restaurando el string original
+carácter por carácter (confirmado con comparación exacta, no aproximada);
+la vidriera pública vuelve a mostrar el texto plano sin `<strong>`. Sin
+errores de consola. Al terminar, en vez de solo dejar el contenido igual al
+original, se borró la fila de `vidriera_textos` directamente (no
+alcanzaba con "mismo contenido que el default" — quedaba `personalizado:
+true` en vez del estado real pre-test de "nunca editado") y el admin de
+prueba, dejando la tabla en 0 filas otra vez.
+
+---
+
 ### Sesión 2026-07-09 #13 — Etapa C: orden manual de la vidriera + anulación puntual del destacado + deshacer/rehacer
 
 Construida la sección "Orden de la vidriera" que quedó preparada (inerte) en

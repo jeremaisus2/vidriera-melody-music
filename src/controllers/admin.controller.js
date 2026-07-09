@@ -1,5 +1,6 @@
 import * as publicacionesRepo from '../repos/publicaciones.repo.js';
 import * as eventosRepo from '../repos/eventos.repo.js';
+import * as textosRepo from '../repos/textos.repo.js';
 
 const TIPOS_VALIDOS = ['concierto', 'muestra', 'examen'];
 
@@ -271,6 +272,33 @@ export async function actualizarDestacadoOverride(req, res, next) {
       mensaje: publicacion_id ? 'Destacado fijado.' : 'Anulación quitada, vuelve a la rotación automática.',
       destacado_override_id: resultado.destacado_override_id,
     });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Textos de la página (Etapa D)
+// ---------------------------------------------------------------------------
+export async function listarTextosAdmin(req, res, next) {
+  try {
+    return res.json(await textosRepo.getTextosAdmin(req.perfil.academia_id));
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function actualizarTexto(req, res, next) {
+  try {
+    const { contenido } = req.body;
+    if (!contenido?.trim()) {
+      return res.status(400).json({ error: 'El campo contenido es requerido' });
+    }
+
+    const resultado = await textosRepo.setTexto(req.perfil.academia_id, req.params.clave, contenido);
+    if (resultado.error) return res.status(400).json({ error: resultado.error });
+
+    return res.json(resultado.texto);
   } catch (err) {
     return next(err);
   }

@@ -158,3 +158,40 @@ button.mm-sidebar-item:hover { background: var(--surface); }
 }
 .mm-pin-btn.active { border-color: var(--accent); background: var(--accent-tint); color: var(--accent); }
 .mm-pin-btn:disabled { opacity: .6; cursor: wait; }
+
+/* ---------- Textos de la página (Etapa D) ---------- */
+.mm-textos-wrap { padding: 32px 40px; max-width: 720px; }
+.mm-textos-list { display: flex; flex-direction: column; gap: 18px; margin-top: 22px; }
+
+.mm-texto-row {
+  padding: 16px 18px; background: #fff; border: 1px solid transparent; border-radius: var(--card-radius);
+  box-shadow: var(--shadow-card); transform: translateY(-4px);
+  display: flex; align-items: center; gap: 16px; justify-content: space-between;
+}
+.mm-texto-row.editing { flex-direction: column; align-items: stretch; gap: 10px; }
+
+.mm-texto-row-body { min-width: 0; }
+.mm-texto-row-label {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); margin-bottom: 4px;
+}
+.mm-texto-row-preview { font-size: 13.5px; color: var(--ink); }
+
+.mm-texto-edit-toolbar { display: flex; gap: 6px; }
+.mm-bold-btn {
+  width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+  background: #fff; cursor: pointer; font-size: 13px; font-family: var(--font-body); font-weight: 700;
+}
+.mm-bold-btn:hover { background: var(--surface); }
+
+.mm-texto-textarea {
+  width: 100%; box-sizing: border-box; font-family: var(--font-body); font-size: 13.5px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; resize: vertical;
+}
+.mm-texto-preview-label {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+}
+.mm-texto-preview {
+  font-size: 13px; color: var(--body-text); padding-top: 4px; border-top: 1px dashed var(--border); margin-top: 2px;
+}
+.mm-texto-edit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }

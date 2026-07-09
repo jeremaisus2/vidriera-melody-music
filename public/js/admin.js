@@ -16,6 +16,26 @@ function escapeHtml(str) {
   }[c]));
 }
 
+// "Negrita simple" (Etapa D): misma convención mínima que consume la
+// vidriera pública, ver public/js/vidriera.js.
+function renderNegritaHtml(contenido) {
+  return escapeHtml(contenido).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
+// Etiquetas legibles para el catálogo fijo de textos editables (Etapa D) —
+// las claves en sí (vidriera_titulo, etc.) coinciden con
+// src/repos/textos.repo.js, no se listan de nuevo acá, solo se les pone
+// nombre para mostrar.
+const TEXTO_LABELS = {
+  destacado_label:    'Etiqueta del destacado de la semana',
+  vidriera_titulo:    'Título de la vidriera',
+  vidriera_subtitulo: 'Subtítulo de la vidriera',
+  calendario_titulo:  'Título del calendario',
+  momentos_titulo:    'Título de "Momentos que ya vivimos"',
+  galeria_titulo:     'Título de la galería',
+  testimonios_titulo: 'Título de testimonios',
+};
+
 function tiempoRelativo(fechaISO) {
   const diffMs = Date.now() - new Date(fechaISO).getTime();
   const min = Math.floor(diffMs / 60000);
@@ -186,12 +206,11 @@ async function verifyAdminAndEnter() {
   renderQueue(data);
   loadStats();
   loadOrden();
+  loadTextos();
 }
 
 // ---------------------------------------------------------------------------
-// Navegación (barra lateral) — reemplaza a las tabs horizontales. Preparada
-// para sumar más secciones (Textos de la página) sin tocar este patrón:
-// agregar un botón más y un case más en setActiveSection.
+// Navegación (barra lateral) — reemplaza a las tabs horizontales.
 // ---------------------------------------------------------------------------
 document.getElementById('navQueueBtn').addEventListener('click', () => setActiveSection('queue'));
 document.getElementById('navStatsBtn').addEventListener('click', () => {
@@ -204,14 +223,20 @@ document.getElementById('navOrdenBtn').addEventListener('click', () => {
   // vive en memoria durante toda la sesión de navegador (pedido explícito),
   // así que re-cargar en cada visita a la sección lo destruiría.
 });
+document.getElementById('navTextosBtn').addEventListener('click', () => {
+  setActiveSection('textos');
+  loadTextos(); // sin estado de sesión que proteger acá, se puede refrescar tranquilo
+});
 
 function setActiveSection(section) {
   document.getElementById('navQueueBtn').classList.toggle('active', section === 'queue');
   document.getElementById('navStatsBtn').classList.toggle('active', section === 'stats');
   document.getElementById('navOrdenBtn').classList.toggle('active', section === 'orden');
+  document.getElementById('navTextosBtn').classList.toggle('active', section === 'textos');
   document.getElementById('tabQueue').hidden = section !== 'queue';
   document.getElementById('tabStats').hidden = section !== 'stats';
   document.getElementById('tabOrden').hidden = section !== 'orden';
+  document.getElementById('tabTextos').hidden = section !== 'textos';
 }
 
 // ---------------------------------------------------------------------------
@@ -558,6 +583,156 @@ document.getElementById('clearOverrideBtn').addEventListener('click', async () =
   }
   pinnedId = null;
   renderOrdenList();
+});
+
+// ---------------------------------------------------------------------------
+// Textos de la página (Etapa D)
+//
+// "Negrita simple": el textarea de edición guarda **así** (markdown mínimo,
+// no HTML) — togglear negrita envuelve/desenvuelve la selección con ** desde
+// el botón de la barra de herramientas. Sin editor de texto enriquecido.
+// A diferencia de "Orden de la vidriera", esta sección SÍ se refresca en
+// cada visita (no hay historial de sesión que proteger acá).
+// ---------------------------------------------------------------------------
+let textos = [];
+
+async function loadTextos() {
+  const { ok, data } = await apiGet('/api/admin/textos');
+  if (!ok) {
+    document.getElementById('textosList').innerHTML = '<p class="mm-empty">No pudimos cargar los textos.</p>';
+    return;
+  }
+  textos = data;
+  renderTextosList();
+}
+
+function renderTextosList() {
+  document.getElementById('textosList').innerHTML = textos.map((t) => textoRowHtml(t)).join('');
+}
+
+function textoRowHtml(t) {
+  return `
+    <div class="mm-texto-row" data-clave="${t.clave}">
+      <div class="mm-texto-row-body">
+        <div class="mm-texto-row-label">${escapeHtml(TEXTO_LABELS[t.clave] ?? t.clave)}</div>
+        <div class="mm-texto-row-preview">${renderNegritaHtml(t.contenido)}</div>
+      </div>
+      <button type="button" class="mm-btn-outline mm-texto-edit-btn" data-clave="${t.clave}">Editar</button>
+    </div>`;
+}
+
+function textoEditHtml(t) {
+  return `
+    <div class="mm-texto-row editing" data-clave="${t.clave}">
+      <div class="mm-texto-row-label">${escapeHtml(TEXTO_LABELS[t.clave] ?? t.clave)}</div>
+      <div class="mm-texto-edit-toolbar">
+        <button type="button" class="mm-bold-btn" data-clave="${t.clave}" title="Negrita a la selección"><strong>N</strong></button>
+      </div>
+      <textarea class="mm-texto-textarea" data-clave="${t.clave}" rows="2">${escapeHtml(t.contenido)}</textarea>
+      <div class="mm-texto-preview-label">Vista previa</div>
+      <div class="mm-texto-preview" data-clave="${t.clave}">${renderNegritaHtml(t.contenido)}</div>
+      <div class="mm-texto-edit-actions">
+        <button type="button" class="mm-btn-outline mm-texto-cancel-btn" data-clave="${t.clave}">Cancelar</button>
+        <button type="button" class="mm-btn-fill mm-texto-save-btn" data-clave="${t.clave}">Guardar</button>
+      </div>
+    </div>`;
+}
+
+function enterEditMode(clave) {
+  const t = textos.find((x) => x.clave === clave);
+  const row = document.querySelector(`.mm-texto-row[data-clave="${clave}"]`);
+  row.outerHTML = textoEditHtml(t);
+  document.querySelector(`.mm-texto-textarea[data-clave="${clave}"]`).focus();
+}
+
+function exitEditMode(clave) {
+  const t = textos.find((x) => x.clave === clave);
+  const row = document.querySelector(`.mm-texto-row[data-clave="${clave}"]`);
+  row.outerHTML = textoRowHtml(t);
+}
+
+function toggleBoldSelection(textarea) {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  if (start === end) {
+    showToast('Seleccioná el texto al que querés aplicar o quitar negrita.');
+    return;
+  }
+
+  const value = textarea.value;
+  const selected = value.slice(start, end);
+  const yaEnNegrita = selected.startsWith('**') && selected.endsWith('**') && selected.length >= 4;
+
+  let nuevoValue, nuevoStart, nuevoEnd;
+  if (yaEnNegrita) {
+    const sinMarcas = selected.slice(2, -2);
+    nuevoValue = value.slice(0, start) + sinMarcas + value.slice(end);
+    nuevoStart = start;
+    nuevoEnd = start + sinMarcas.length;
+  } else {
+    nuevoValue = value.slice(0, start) + '**' + selected + '**' + value.slice(end);
+    nuevoStart = start;
+    nuevoEnd = end + 4;
+  }
+
+  textarea.value = nuevoValue;
+  textarea.focus();
+  textarea.setSelectionRange(nuevoStart, nuevoEnd);
+  actualizarPreview(textarea);
+}
+
+function actualizarPreview(textarea) {
+  const preview = document.querySelector(`.mm-texto-preview[data-clave="${textarea.dataset.clave}"]`);
+  if (preview) preview.innerHTML = renderNegritaHtml(textarea.value);
+}
+
+async function saveTexto(clave) {
+  const textarea = document.querySelector(`.mm-texto-textarea[data-clave="${clave}"]`);
+  const nuevoContenido = textarea.value;
+  if (!nuevoContenido.trim()) {
+    showToast('El texto no puede quedar vacío.');
+    return;
+  }
+
+  const saveBtn = document.querySelector(`.mm-texto-save-btn[data-clave="${clave}"]`);
+  saveBtn.disabled = true;
+  const { ok, data } = await apiPut(`/api/admin/textos/${encodeURIComponent(clave)}`, { contenido: nuevoContenido });
+  if (saveBtn) saveBtn.disabled = false;
+
+  if (!ok) {
+    showToast(data.error ?? 'No se pudo guardar el texto.');
+    return;
+  }
+
+  const idx = textos.findIndex((t) => t.clave === clave);
+  textos[idx] = { ...textos[idx], contenido: data.contenido, negrita: data.negrita, personalizado: true, updated_at: data.updated_at };
+  exitEditMode(clave);
+  showToast('Texto guardado — ya se ve así en la vidriera pública.');
+}
+
+// Delegación de eventos en el contenedor: las filas se reemplazan con
+// outerHTML al entrar/salir de edición, así que atar listeners fila por fila
+// llevaría a listeners duplicados en las filas que no cambiaron. Con
+// delegación alcanza con atar esto una sola vez.
+document.getElementById('textosList').addEventListener('click', (e) => {
+  const editBtn = e.target.closest('.mm-texto-edit-btn');
+  if (editBtn) return enterEditMode(editBtn.dataset.clave);
+
+  const cancelBtn = e.target.closest('.mm-texto-cancel-btn');
+  if (cancelBtn) return exitEditMode(cancelBtn.dataset.clave);
+
+  const saveBtn = e.target.closest('.mm-texto-save-btn');
+  if (saveBtn) return saveTexto(saveBtn.dataset.clave);
+
+  const boldBtn = e.target.closest('.mm-bold-btn');
+  if (boldBtn) {
+    const textarea = document.querySelector(`.mm-texto-textarea[data-clave="${boldBtn.dataset.clave}"]`);
+    return toggleBoldSelection(textarea);
+  }
+});
+
+document.getElementById('textosList').addEventListener('input', (e) => {
+  if (e.target.classList.contains('mm-texto-textarea')) actualizarPreview(e.target);
 });
 
 // ---------------------------------------------------------------------------

@@ -55,8 +55,7 @@
       <button type="button" class="mm-sidebar-item active" id="navQueueBtn">Cola de aprobación</button>
       <button type="button" class="mm-sidebar-item" id="navStatsBtn">Estadísticas de vistas</button>
       <button type="button" class="mm-sidebar-item" id="navOrdenBtn">Orden de la vidriera</button>
-      <div class="mm-sidebar-divider"></div>
-      <span class="mm-sidebar-item disabled" title="Disponible próximamente">Textos de la página</span>
+      <button type="button" class="mm-sidebar-item" id="navTextosBtn">Textos de la página</button>
     </nav>
   </aside>
 
@@ -98,6 +97,12 @@
       </div>
 
       <div id="ordenList" class="mm-orden-list"></div>
+    </section>
+
+    <section id="tabTextos" class="mm-textos-wrap" hidden>
+      <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Textos de la página</div>
+      <div class="mm-stats-subtitle">Títulos y subtítulos fijos de la vidriera pública. Los cambios se ven ahí apenas se guardan.</div>
+      <div id="textosList" class="mm-textos-list"></div>
     </section>
   </main>
 

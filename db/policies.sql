@@ -474,6 +474,32 @@ create policy "testimonios_insert"
 
 
 -- =====================================================================
+-- vidriera_textos (Etapa D — panel admin, "Textos de la página")
+-- Los textos fijos editables son públicos (se leen sin login en la
+-- vidriera). Escritura: solo admin, y solo de su propia academia — el
+-- backend además valida server-side que `clave` sea una de las conocidas
+-- (catálogo fijo en código, no se puede crear/borrar claves).
+-- =====================================================================
+
+alter table vidriera_textos enable row level security;
+
+create policy "textos_select_public"
+  on vidriera_textos for select
+  using (true);
+
+create policy "textos_write_admin"
+  on vidriera_textos for all
+  using (
+    vidriera_rol() = 'admin'
+    and academia_id = vidriera_academia_id()
+  )
+  with check (
+    vidriera_rol() = 'admin'
+    and academia_id = vidriera_academia_id()
+  );
+
+
+-- =====================================================================
 -- FIN DE POLÍTICAS
 -- =====================================================================
 --
@@ -496,6 +522,7 @@ create policy "testimonios_insert"
 -- vidriera_reacciones             -     ID(own)  R(acad)  R
 -- vidriera_galeria                R     R        CRUD     R
 -- vidriera_testimonios            R     R+I      R        R
+-- vidriera_textos                 R     R        CRUD(acad) R
 --
 -- Leyenda:
 --   R  = SELECT    C = INSERT    U = UPDATE    D = DELETE

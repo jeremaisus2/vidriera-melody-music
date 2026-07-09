@@ -41,6 +41,15 @@ function escapeHtml(str) {
   }[c]));
 }
 
+// "Negrita simple" (Etapa D, panel admin "Textos de la página"): convención
+// mínima tipo markdown, **así**, que el admin aplica a una selección dentro
+// del textarea de edición. Nunca se guarda HTML — siempre se escapa primero
+// y recién después se reemplazan los ** por <strong>, así el contenido en sí
+// no puede inyectar markup.
+function renderNegritaHtml(contenido) {
+  return escapeHtml(contenido).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
+
 // ---------------------------------------------------------------------------
 // Auth (solo para autenticar familias antes de reaccionar a un evento; la
 // lectura pública de la vidriera no requiere sesión). Se habla directo con
@@ -578,6 +587,24 @@ async function loadMomentos() {
 }
 
 // ---------------------------------------------------------------------------
+// Textos fijos editables (Etapa D)
+// ---------------------------------------------------------------------------
+async function loadTextos() {
+  try {
+    const textos = await apiGet('/api/textos');
+    document.querySelectorAll('[data-texto-clave]').forEach((el) => {
+      const t = textos[el.dataset.textoClave];
+      if (t) el.innerHTML = renderNegritaHtml(t.contenido);
+    });
+  } catch (err) {
+    // No es protagonista ni bloquea nada: si falla, quedan los textos
+    // hardcodeados del HTML como default (son el mismo valor por defecto
+    // que usaría el backend de todos modos).
+    console.error(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 async function main() {
@@ -588,6 +615,7 @@ async function main() {
     loadDestacado(),
     loadEventosProximos(),
     loadMomentos(),
+    loadTextos(),
   ]);
 }
 

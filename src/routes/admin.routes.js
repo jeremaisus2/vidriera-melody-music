@@ -18,6 +18,8 @@ import {
   listarPublicacionesAdmin,
   actualizarOrden,
   actualizarDestacadoOverride,
+  listarTextosAdmin,
+  actualizarTexto,
 } from '../controllers/admin.controller.js';
 
 export const adminRouter = Router();
@@ -51,3 +53,7 @@ adminRouter.get('/estadisticas/vistas',  estadisticasVistas);
 adminRouter.get('/publicaciones',           listarPublicacionesAdmin);
 adminRouter.put('/publicaciones/orden',     actualizarOrden);
 adminRouter.put('/destacado-override',      actualizarDestacadoOverride);
+
+// --- Textos de la página (Etapa D) ---
+adminRouter.get('/textos',          listarTextosAdmin);
+adminRouter.put('/textos/:clave',   actualizarTexto);

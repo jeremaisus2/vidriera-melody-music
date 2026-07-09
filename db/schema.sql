@@ -180,6 +180,27 @@ create table if not exists vidriera_testimonios (
 );
 
 -- ---------------------------------------------------------------------
+-- Textos fijos editables de la vidriera pública (panel admin, Etapa D)
+-- El catálogo de claves válidas (títulos/subtítulos de sección) está fijo en
+-- código, src/repos/textos.repo.js — esta tabla solo guarda las
+-- personalizaciones. Si una clave no tiene fila acá todavía, el backend usa
+-- el valor por defecto del catálogo. No hay forma de crear/borrar claves
+-- desde el panel: solo editar el contenido de las que ya existen.
+-- `negrita` es un flag derivado (true si `contenido` tiene algún **negrita**
+-- aplicado), se recalcula en cada guardado — no es editable directamente.
+-- ---------------------------------------------------------------------
+create table if not exists vidriera_textos (
+  id           uuid primary key default gen_random_uuid(),
+  academia_id  uuid not null references vidriera_academias(id) on delete cascade,
+  clave        text not null,
+  contenido    text not null,
+  negrita      boolean not null default false,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  unique (academia_id, clave)
+);
+
+-- ---------------------------------------------------------------------
 -- Nota sobre RLS:
 -- En Supabase conviene activar Row Level Security en estas tablas y escribir
 -- políticas por rol (cliente ve/edita lo suyo, admin su academia, super_admin todo).
