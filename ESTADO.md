@@ -194,6 +194,84 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
   (`.env` → `APP_URL`, ver `src/config/env.js`).
 - Scoping por academia en rutas públicas (vidriera/calendario) para cuando conviva
   más de una academia en la misma instalación — hoy devuelven datos de todas.
+- **Alta de familias**: hoy es 100% manual vía `scripts/crear-usuario.mjs` (ver
+  sesión #10). Falta decidir si el negocio necesita self-registration antes de
+  producción, y si es así, si el registro es libre o requiere invitación/código
+  de la academia (para que no se sume gente ajena). Sin definición todavía.
+
+---
+
+### Sesión 2026-07-09 #10 — Pre-despliegue: alta manual de familias + estados de error por sección
+
+Dos pendientes detectados al revisar qué falta antes de desplegar (no eran
+gaps de diseño, sino de operación real): cómo se da de alta una familia hoy, y
+qué pasa en la vidriera si el backend falla (no "sin datos", sino error real).
+
+**1. `scripts/crear-usuario.mjs`** (reemplaza a `crear-admin.mjs`)
+- No hay ni va a haber self-registration en esta etapa — se pidió explícitamente
+  no construirlo todavía (ni verificación de email). La solución es la mínima
+  viable: generalizar el script existente para que reciba también el rol.
+- `node scripts/crear-usuario.mjs <email> <password> <rol> [slug-academia] [nombre]`,
+  `rol` es `cliente` o `admin` (`super_admin` no se crea acá: no está atado a
+  academia). Mismo flujo que antes (`supabaseAdmin.auth.admin.createUser` +
+  upsert en `vidriera_perfiles`), con el rol y el nombre como parámetros en vez
+  de hardcodeados. Soporta variables de entorno (`USUARIO_EMAIL`/`_PASSWORD`/
+  `_ROL`/`_ACADEMIA_SLUG`/`_NOMBRE`) para no dejar la contraseña en el
+  historial de la shell, igual que el script viejo.
+- `crear-admin.mjs` se borró (no un wrapper de compatibilidad: es un script
+  interno de operación, no una API pública, no había nada que preservar) y el
+  script de `package.json` pasó de `crear-admin` a `crear-usuario`.
+- Verificado end-to-end contra Supabase real: alta de un `cliente` y de un
+  `admin` reales (incluyendo `npm run crear-usuario --`), confirmado el
+  registro en `vidriera_perfiles` con el rol y nombre correctos, y los tres
+  casos de validación (rol inválido, faltan argumentos, slug de academia
+  inexistente) fallan con mensaje claro y exit code 1. Usuarios de prueba
+  borrados al final (el cascade de `auth.users` → `vidriera_perfiles` se
+  encargó de la fila de perfil).
+- Sigue siendo 100% manual — queda anotado en "Decisiones pendientes" si vale
+  la pena un flujo de self-registration antes de producción.
+
+**2. Estados de error por sección en la vidriera**
+- Gap encontrado al repasar `public/js/vidriera.js`: los estados de "sin
+  datos" (`mm-empty`) ya estaban bien cubiertos desde la sesión #6, pero si
+  una carga fallaba de verdad (backend caído, red), no había mensaje — la
+  sección quedaba con el `<div>` vacío del HTML inicial, sin feedback ni forma
+  de reintentar sin recargar toda la página.
+- Agregado `renderErrorState(containerId, mensaje, onRetry)` (helper genérico,
+  `public/js/vidriera.js`) y una clase `.mm-error-state`/`.mm-error-text`
+  puntual en `styles.css` (reusa `.mm-btn-outline` ya existente para el botón).
+  Cada sección protagonista (`loadPublicaciones`, `loadEventosProximos`,
+  `loadMomentos`) ahora atrapa el error de su propio fetch y muestra el
+  mensaje + un botón "Reintentar" que vuelve a llamar a la misma función de
+  carga, sin recargar la página ni afectar a las otras secciones.
+- `loadMomentos` tiene dos fases independientes (lista de eventos pasados, y
+  después galería+testimonios de esos eventos) — cada una atrapa su propio
+  error por separado, así que si falla la segunda fase la fila de eventos
+  pasados (que ya cargó bien) no se pisa con un estado de error.
+- `loadDestacado` es la excepción a propósito: es una sección decorativa
+  (banner de la semana + sponsors), no protagonista — si falla, se comporta
+  igual que "no hay evento destacado esta semana" (se oculta sin dejar hueco)
+  en vez de mostrar una caja de error que el usuario no puede accionar. Se
+  loguea a consola para poder diagnosticarlo igual.
+- **Gap adicional encontrado en el camino** (no estaba en el pedido original
+  pero es la misma clase de problema): `loadMisReacciones()` se espera
+  (`await`) ANTES del `Promise.all` de las cuatro secciones en `main()` — si
+  ese fetch fallaba, ninguna de las cuatro secciones llegaba a cargar nunca,
+  a pesar de no depender de "mis reacciones" para nada. Corregido con el mismo
+  criterio que `loadDestacado`: degrada en silencio (reacciones arrancan en
+  "inactivo", que es el estado por default de todos modos) en vez de tumbar
+  toda la página.
+- Verificado con Playwright interceptando rutas (`page.route(...)` devolviendo
+  500) en vez de tirar el servidor real, para poder simular la falla de cada
+  endpoint por separado con precisión: publicaciones, destacado, eventos
+  próximos, y eventos generales (que rompe en cascada momentos+galería+
+  testimonios) — cada uno mostró el mensaje esperado, sin errores de consola
+  no manejados. Confirmado también el ciclo completo de recuperación: falla →
+  aparece el error → se "arregla" el backend (se saca la intercepción) → click
+  en "Reintentar" → la sección se recupera y vuelve a mostrar el estado real
+  (en este caso, "Todavía no hay publicaciones", porque no hay datos cargados
+  en la base ahora mismo — confirma que el retry ejecuta la carga real, no
+  solo limpia el mensaje de error).
 
 ---
 

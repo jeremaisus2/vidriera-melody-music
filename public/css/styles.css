@@ -113,6 +113,9 @@ a:hover { color: #3a5234; }
 .mm-eyebrow { font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
 .mm-empty { font-size: 13px; color: var(--muted); }
 
+.mm-error-state { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.mm-error-text { font-size: 13px; color: var(--body-text); margin: 0; }
+
 /* ---------- Highlight banner ---------- */
 .mm-highlight {
   margin: 0;

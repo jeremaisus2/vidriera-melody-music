@@ -97,7 +97,7 @@ src/
     superadmin.repo.js      vidriera_academias, vidriera_academia_modulos, vidriera_modulos
     uploads.repo.js         compresión (sharp) + subida a Supabase Storage
 scripts/
-  crear-admin.mjs        alta de un admin real (Auth + vidriera_perfiles)
+  crear-usuario.mjs      alta manual de un usuario real (cliente o admin; Auth + vidriera_perfiles)
   setup-storage.mjs      alta idempotente del bucket vidriera-imagenes
 db/
   schema.sql             DDL con prefijo vidriera_

@@ -175,6 +175,22 @@ function showToast(msg) {
 }
 
 // ---------------------------------------------------------------------------
+// Estado de error por sección — a diferencia de "sin datos" (mm-empty), esto
+// es para cuando la carga en sí falló (backend caído, red, etc.): un mensaje
+// que no se puede confundir con "no hay nada cargado todavía" y un botón para
+// reintentar esa sección puntual, sin tener que recargar toda la página.
+// ---------------------------------------------------------------------------
+function renderErrorState(containerId, mensaje, onRetry) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = `
+    <div class="mm-error-state">
+      <p class="mm-error-text">${escapeHtml(mensaje)}</p>
+      <button type="button" class="mm-btn-outline mm-retry-btn">Reintentar</button>
+    </div>`;
+  el.querySelector('.mm-retry-btn').addEventListener('click', onRetry);
+}
+
+// ---------------------------------------------------------------------------
 // API helpers
 // ---------------------------------------------------------------------------
 async function apiGet(path) {
@@ -265,18 +281,36 @@ function renderBusinessGrid() {
 }
 
 async function loadPublicaciones() {
-  allPublicaciones = await apiGet('/api/publicaciones');
-  renderCategoryPills();
-  renderBusinessGrid();
+  try {
+    allPublicaciones = await apiGet('/api/publicaciones');
+    renderCategoryPills();
+    renderBusinessGrid();
+  } catch (err) {
+    console.error(err);
+    renderCategoryPills();
+    renderErrorState('businessGrid', 'No pudimos cargar las publicaciones.', loadPublicaciones);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Destacado de la semana + sponsors
 // ---------------------------------------------------------------------------
 async function loadDestacado() {
-  const data = await apiGet('/api/publicaciones/destacado');
   const destacadoWrap = document.getElementById('destacadoWrap');
   const sponsorsWrap = document.getElementById('sponsors');
+
+  let data;
+  try {
+    data = await apiGet('/api/publicaciones/destacado');
+  } catch (err) {
+    // Sección decorativa, no protagonista: si falla, se comporta igual que
+    // "no hay evento destacado" (se oculta) en vez de mostrar un error que el
+    // usuario no puede accionar. Se loguea para poder diagnosticarlo igual.
+    console.error(err);
+    destacadoWrap.hidden = true;
+    sponsorsWrap.hidden = true;
+    return;
+  }
 
   if (!data.evento) {
     destacadoWrap.hidden = true;
@@ -325,7 +359,15 @@ async function loadMisReacciones() {
     misReaccionesCache = [];
     return;
   }
-  misReaccionesCache = await apiGet('/api/eventos/mias/reacciones');
+  try {
+    misReaccionesCache = await apiGet('/api/eventos/mias/reacciones');
+  } catch (err) {
+    // No debe bloquear el resto de la página: si falla, los botones de
+    // reacción arrancan en "inactivo" (degradación aceptable) en vez de
+    // tumbar la carga de toda la vidriera, que no depende de esto.
+    console.error(err);
+    misReaccionesCache = [];
+  }
 }
 
 function isReactionActive(eventoId, tipo) {
@@ -396,7 +438,14 @@ function eventCardHtml(ev) {
 
 async function loadEventosProximos() {
   const row = document.getElementById('eventsRow');
-  const eventos = await apiGet('/api/eventos?soloFuturos=true');
+  let eventos;
+  try {
+    eventos = await apiGet('/api/eventos?soloFuturos=true');
+  } catch (err) {
+    console.error(err);
+    renderErrorState('eventsRow', 'No pudimos cargar el calendario de eventos.', loadEventosProximos);
+    return;
+  }
 
   if (eventos.length === 0) {
     row.innerHTML = '<p class="mm-empty">No hay próximos eventos cargados todavía.</p>';
@@ -436,7 +485,17 @@ function pastEventCardHtml(ev) {
 }
 
 async function loadMomentos() {
-  const eventos = await apiGet('/api/eventos');
+  let eventos;
+  try {
+    eventos = await apiGet('/api/eventos');
+  } catch (err) {
+    console.error(err);
+    renderErrorState('pastEventsRow', 'No pudimos cargar los eventos pasados.', loadMomentos);
+    renderErrorState('galleryGrid', 'No pudimos cargar la galería.', loadMomentos);
+    renderErrorState('testimonialsGrid', 'No pudimos cargar los testimonios.', loadMomentos);
+    return;
+  }
+
   const pasados = eventos
     .filter((e) => e.es_pasado)
     .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
@@ -461,10 +520,18 @@ async function loadMomentos() {
   }
 
   const recientes = pasados.slice(0, 3);
-  const [galerias, testimonios] = await Promise.all([
-    Promise.all(recientes.map((e) => apiGet(`/api/eventos/${e.id}/galeria`))),
-    Promise.all(recientes.map((e) => apiGet(`/api/eventos/${e.id}/testimonios`))),
-  ]);
+  let galerias, testimonios;
+  try {
+    [galerias, testimonios] = await Promise.all([
+      Promise.all(recientes.map((e) => apiGet(`/api/eventos/${e.id}/galeria`))),
+      Promise.all(recientes.map((e) => apiGet(`/api/eventos/${e.id}/testimonios`))),
+    ]);
+  } catch (err) {
+    console.error(err);
+    renderErrorState('galleryGrid', 'No pudimos cargar la galería.', loadMomentos);
+    renderErrorState('testimonialsGrid', 'No pudimos cargar los testimonios.', loadMomentos);
+    return;
+  }
 
   const galleryGrid = document.getElementById('galleryGrid');
   const fotos = galerias.flat().slice(0, 8);

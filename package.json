@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "crear-admin": "node scripts/crear-admin.mjs"
+    "crear-usuario": "node scripts/crear-usuario.mjs"
   },
   "engines": {
     "node": ">=20"
