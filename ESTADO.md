@@ -62,18 +62,19 @@ npm run dev
    Confirmar si el proyecto Supabase será compartido con otros productos GIZA
    (acad_, nieve_) o dedicado. Las tablas `vidriera_` no colisionan en ningún caso.
 
-2. **Aplicar schema y seed en el SQL editor de Supabase** (en orden):
-   - `db/schema.sql` — crea las 12 tablas con prefijo `vidriera_`
-   - `db/seed.sql` — catálogo de módulos, categorías y academia "Melody Music"
+2. **Aplicar en el SQL editor de Supabase, en orden**:
+   - `db/schema.sql` — 12 tablas con prefijo `vidriera_` + índices  ← **pendiente**
+   - `db/seed.sql`   — catálogo de módulos, categorías, academia "Melody Music"  ← **pendiente**
+   - `db/policies.sql` — RLS completo para las 12 tablas  ← **✅ LISTO PARA APLICAR**
 
-3. **Escribir políticas RLS** → `db/policies.sql` (pendiente de crear)
-   Criterio por tabla:
-   - `vidriera_publicaciones`: SELECT público para `approved`; INSERT/UPDATE solo el `owner_user_id`
-   - `vidriera_publicaciones_ediciones`: el owner puede ver/crear; admin de su academia puede moderar
-   - `vidriera_eventos`, `vidriera_galeria`: SELECT público; escritura solo rol `admin`
-   - `vidriera_rsvp`, `vidriera_reacciones`, `vidriera_testimonios`: el propio usuario
-   - `vidriera_perfiles`: cada usuario lee el suyo; super_admin lee todos
-   - `vidriera_academias`, `vidriera_academia_modulos`, `vidriera_modulos`: solo `super_admin`
+3. **`db/policies.sql` — decisiones clave ya tomadas**:
+   - Funciones helper `vidriera_rol()` y `vidriera_academia_id()` (`security definer`) evitan subqueries repetidas.
+   - El backend usa `supabaseAdmin` (service_role) para moderación y super-admin → salta RLS. Las políticas son defensa en profundidad y guardan la lectura con `supabaseForToken`.
+   - `vidriera_perfiles`: sin UPDATE/DELETE de cliente → evita escalada de privilegios (nadie puede cambiar su propio rol).
+   - `vidriera_publicaciones` UPDATE de cliente: solo en estado `pending` o `rejected`; el `with check` obliga a que quede `'pending'` → no puede auto-aprobarse.
+   - `vidriera_publicaciones_ediciones` INSERT: solo para publicaciones en estado `approved` (las pending/rejected se editan en-place).
+   - Conteos públicos de RSVP y reacciones → el backend usa `supabaseAdmin` (los clientes solo leen sus propios registros).
+   - Incremento de `vistas` → siempre `supabaseAdmin`; ninguna política permite UPDATE anónimo.
 
 ### Migración de la capa mock a Supabase real
 
@@ -105,6 +106,15 @@ por queries a Supabase, tabla por tabla. Orden sugerido:
 - Supabase compartido vs. dedicado.
 - Estrategia de compresión de imágenes (cliente o servidor).
 - Dominio/subdominio de despliegue (`APP_URL`).
+
+---
+
+### Sesión 2026-07-08 #6 — Políticas RLS (`db/policies.sql`)
+
+- Creado `db/policies.sql` con políticas para las 12 tablas del schema.
+- Dos funciones helper `security definer`: `vidriera_rol()` y `vidriera_academia_id()`.
+- Decisiones no obvias documentadas en el archivo y en los prerequisitos de Etapa 2.
+- **No aplicado todavía contra Supabase**: se aplica en la próxima sesión, junto con schema.sql y seed.sql.
 
 ---
 
