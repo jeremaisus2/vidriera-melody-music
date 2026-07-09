@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de super-administrador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<link rel="stylesheet" href="/css/admin.css">
+<link rel="stylesheet" href="/css/super-admin.css">
+</head>
+<body>
+
+<div class="mm-admin-gate" id="loginGate">
+  <div class="mm-modal">
+    <div class="mm-modal-title">Panel de super-administrador</div>
+    <div class="mm-modal-sub">Iniciá sesión con tu cuenta de GIZA (proveedor de la plataforma).</div>
+    <form id="loginForm">
+      <label class="mm-field">
+        <span>Email</span>
+        <input type="email" name="email" required autocomplete="username">
+      </label>
+      <label class="mm-field">
+        <span>Contraseña</span>
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <p class="mm-form-error" id="loginError" hidden></p>
+      <div class="mm-modal-actions">
+        <button type="submit" class="mm-btn-fill" style="flex:1;">Ingresar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="superAdminShell" hidden>
+
+  <header class="mm-header">
+    <div class="mm-header-brand">
+      <div class="mm-neutral-logo">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div>
+        <div class="mm-wordmark">Panel de super-administrador</div>
+        <div class="mm-wordmark-sub">Gestión de clientes de la plataforma</div>
+      </div>
+    </div>
+    <div class="mm-header-right">
+      <button type="button" class="mm-avatar" id="avatarBtn" aria-label="Mi cuenta">SA</button>
+    </div>
+  </header>
+
+  <section class="mm-admin-shell">
+    <div class="mm-queue-list">
+      <div class="mm-queue-header">
+        <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;">Clientes de la plataforma</div>
+        <div class="mm-queue-count" id="clientCountLabel"></div>
+      </div>
+      <div id="clientRows"></div>
+    </div>
+    <div class="mm-preview-pane" id="clientDetail">
+      <p class="mm-empty">Seleccioná un cliente de la lista para ver sus módulos.</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="mm-toast" id="toast" hidden></div>
+
+<script src="/config.js"></script>
+<script type="module" src="/js/super-admin.js"></script>
+</body>
+</html>

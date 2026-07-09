@@ -1,0 +1,56 @@
+/* ---------- Header: logo neutro (sin marca de ninguna academia) ---------- */
+.mm-neutral-logo {
+  width: 40px; height: 40px; border-radius: 8px; background: var(--ink);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  align-items: center; justify-items: center; padding: 9px;
+  flex: none; box-sizing: border-box;
+}
+.mm-neutral-logo span { width: 6px; height: 6px; border-radius: 1px; background: #fff; }
+
+/* ---------- Panel izquierdo: 340px (no 400px como la cola de admin) ---------- */
+#superAdminShell .mm-queue-list { width: 340px; }
+
+/* ---------- Filas de clientes ---------- */
+.mm-client-row {
+  display: block; width: 100%; padding: 14px 26px; text-align: left; cursor: pointer;
+  border: none; border-left: 3px solid transparent; background: #fff;
+  font-family: var(--font-body); box-sizing: border-box;
+}
+.mm-client-row.selected { border-left-color: var(--accent); background: var(--surface); }
+.mm-client-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+.mm-client-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.mm-client-summary { font-size: 11.5px; color: var(--muted); }
+
+.mm-status-pill.activo { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 10px; background: var(--accent-tint); color: var(--accent); flex: none; }
+.mm-status-pill.pausado { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 10px; background: var(--surface); color: var(--muted); flex: none; }
+
+/* ---------- Detalle del cliente seleccionado ---------- */
+.mm-client-detail-top { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.mm-client-detail-name { font-size: 22px; font-weight: 600; color: var(--ink); }
+.mm-client-detail-summary { font-size: 13px; color: var(--muted); }
+
+.mm-status-badge.activo { font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 12px; background: var(--accent-tint); color: var(--accent); flex: none; }
+.mm-status-badge.pausado { font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 12px; background: var(--surface); color: var(--muted); flex: none; }
+
+/* ---------- Catálogo de módulos ---------- */
+.mm-module-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 0; border-bottom: 1px solid var(--stat-track);
+}
+.mm-module-name { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+
+.mm-plan-badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 10px; }
+.mm-plan-badge.base { background: var(--surface); color: var(--muted); }
+.mm-plan-badge.addon { background: var(--accent-tint); color: var(--accent); }
+
+/* ---------- Toggle switch ---------- */
+.mm-toggle-track {
+  width: 42px; height: 24px; border-radius: 12px; border: none; cursor: pointer;
+  padding: 3px; display: flex; box-sizing: border-box; flex: none;
+  background: var(--border);
+  transition: background .15s ease;
+}
+.mm-toggle-track.on { background: var(--accent); justify-content: flex-end; }
+.mm-toggle-track:not(.on) { justify-content: flex-start; }
+.mm-toggle-track:disabled { opacity: .6; cursor: wait; }
+.mm-toggle-knob { width: 18px; height: 18px; border-radius: 50%; background: #fff; display: block; }

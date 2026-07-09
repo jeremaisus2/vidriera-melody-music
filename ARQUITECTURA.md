@@ -115,6 +115,17 @@ Supabase (una capa de repositorios con las mismas firmas por dominio: publicacio
 eventos, super-admin). Los repos son el único lugar que conoce nombres de tabla y
 detalles de PostgREST/RLS.
 
+### 6.1. Convención de frontend: `hidden` + CSS
+
+Regla fija (ver el comment banner al tope de `public/css/styles.css`): toda
+clase que declare `display` distinto de `none` y se use en un elemento que se
+oculta vía `el.hidden = true` desde JS necesita su propio
+`.clase[hidden] { display: none; }`, porque una regla de autor con `display`
+siempre le gana a la regla implícita `[hidden]{display:none}` del navegador.
+Bug real, encontrado dos veces (vidriera sesión #6, admin sesión #8) — antes de
+sumar una pantalla nueva con paneles/modales toggleados por `hidden`, agregar
+el override desde el principio en vez de esperar a que aparezca en una captura.
+
 ## 7. Seguridad y datos
 
 - Tres clientes Supabase (`src/config/supabase.js`): `supabaseAdmin` (service_role,

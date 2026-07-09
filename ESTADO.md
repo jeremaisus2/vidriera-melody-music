@@ -172,9 +172,9 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ### Lo que falta para cerrar Etapa 2
 
-1. **Handoff visual** → vidriera (2a/2b) ✅ y panel de admin de academia (2c) ✅
-   implementados (ver sesiones #6 y #8 abajo). Falta el panel de super-admin (`3a`),
-   solo versión desktop según el README del handoff.
+1. **Handoff visual** → ✅ completo: vidriera (2a/2b), panel de admin de academia
+   (2c) y panel de super-admin (3a) implementados (sesiones #6, #8, #9). Las
+   4 pantallas del README del handoff (`design-bundle/`) están hechas.
 2. (Menor, no bloqueante) Decidir si las rutas públicas de vidriera/calendario deben
    filtrar por academia cuando convivan varias academias en la misma instalación —
    hoy devuelven datos de todas.
@@ -194,6 +194,93 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
   (`.env` → `APP_URL`, ver `src/config/env.js`).
 - Scoping por academia en rutas públicas (vidriera/calendario) para cuando conviva
   más de una academia en la misma instalación — hoy devuelven datos de todas.
+
+---
+
+### Sesión 2026-07-09 #9 — Frontend: panel de super-administrador (`3a`) — cierra el handoff visual
+
+Implementada la cuarta y última pantalla del handoff visual: gestión de
+academias/clientes de la plataforma y catálogo de módulos por cliente. Solo
+desktop (así lo pide el README). No se tocó el backend — la API de
+super-admin ya existía completa desde Etapa 1/2.
+
+- **Antes de arrancar**, por pedido explícito: se revisó si el bug de CSS
+  `[hidden]` (apareció en la vidriera sesión #6 y de nuevo en el admin sesión
+  #8) ya estaba documentado como *patrón a evitar* y no solo como entrada de
+  bitácora. No lo estaba — dos entradas de sesión no son un lugar que alguien
+  vaya a leer antes de escribir CSS nuevo. Se agregó: (1) un comment banner al
+  tope de `public/css/styles.css` con la regla exacta y el porqué (cascada
+  autor > user-agent), en el archivo donde efectivamente se agregan clases
+  nuevas; (2) una referencia corta en `ARQUITECTURA.md` §6.1 para que quede
+  también en la documentación "estable". Resultado: en esta sesión el patrón
+  se aplicó **proactivamente** (`.mm-admin-gate`/`.mm-admin-shell` reusados de
+  `admin.css`, ya traían su `[hidden]{display:none}` de la sesión anterior) y
+  no volvió a aparecer — confirmado con Playwright, sin necesidad de
+  depurarlo por tercera vez.
+- **Página separada** `public/super-admin.html` + `super-admin.css` +
+  `super-admin.js`, reusando `styles.css` (tokens, `.mm-avatar`) y **también
+  las clases del panel de admin** (`.mm-admin-gate`, `.mm-admin-shell`,
+  `.mm-queue-list`, `.mm-queue-header`, `.mm-preview-pane`, `.mm-eyebrow`) en
+  vez de reinventar el layout de dos paneles — solo `super-admin.css` puntual
+  para lo que sí es distinto (logo neutro, ancho de panel 340px vs 400px,
+  filas de cliente, catálogo de módulos, switch). Mismo mecanismo de login
+  liviano que vidriera/admin, con su propia clave de `localStorage`
+  (`mm_superadmin_auth_session`) y verificación de rol contra
+  `GET /api/super-admin/academias` (403 si no es `super_admin`).
+- **Sin nav en el header**: a diferencia de 2a/2c, el prototipo de 3a no tiene
+  fila de navegación (solo logo+título a la izquierda, avatar "SA" a la
+  derecha) — se respetó tal cual, sin agregar nada.
+- **Colores tomados del script, no del README**: a diferencia de la cola de
+  aprobación (sesión #8, donde el README pisaba al script porque el script
+  todavía tenía el burgundy viejo), acá el bloque `renderVals()` del `3a` en
+  el prototipo YA usa el acento verde final (`ACCENT_G`) en todos los estilos
+  de esta pantalla — se tomaron esos valores literales (pills de estado,
+  borde de fila seleccionada, badge de plan, track del switch).
+- **Sin botón para pausar/activar cliente ni para crear clientes nuevos**: el
+  README de interacciones solo describe el toggle de módulos y la selección
+  de fila; el propio prototipo lista "sumar un botón para pausar el cliente
+  completo" como sugerencia de *próximo paso*, no como parte de esta pantalla
+  — confirma que el estado activo/pausado es de solo lectura acá. La API sí
+  tiene `POST /academias` y `POST /academias/:id/estado` (se usaron para
+  sembrar datos de prueba), pero no se construyó UI para ellos: no están en
+  el alcance de `3a`.
+- **Bug real encontrado y corregido durante la verificación** (no la misma
+  clase que `[hidden]`, uno nuevo): condición de carrera al cambiar de
+  cliente rápido. `loadClientDetail()` no tenía guarda contra respuestas
+  fuera de orden — si el fetch de módulos del cliente A (la selección por
+  default al loguearse) tardaba más que el fetch disparado por click en el
+  cliente B, la respuesta de A podía llegar *después* y pisar el panel de B
+  con los datos de A. Encontrado porque un test de Playwright switcheaba de
+  cliente muy rápido y el panel mostraba el cliente equivocado; confirmado
+  que no era solo el test porque el toggle de módulo de esa corrida
+  efectivamente escribió `galeria: true` en el cliente incorrecto en la base
+  real (verificado con una consulta directa a `vidriera_academia_modulos`,
+  no solo mirando la UI). Corregido con un contador de "última solicitud
+  gana" en `loadClientDetail()`, y `toggleModulo()` ahora solo re-pinta el
+  panel de detalle si el cliente togleado sigue siendo el seleccionado
+  (el conteo "N de M módulos" de la fila en la lista izquierda sí se
+  actualiza siempre, sin importar cuál esté seleccionado, porque ese cambio
+  ya es real en el servidor pase lo que pase en la UI). Estado incorrecto
+  causado por el bug revertido a mano después de confirmarlo.
+- **Verificado end-to-end contra Supabase real** (servidor HTTP real,
+  Playwright/Chromium headless): login no-super_admin rechazado con 403;
+  login super_admin real entra; lista de clientes con datos reales (pill de
+  estado, resumen "N de M módulos activos · Cliente desde {mes} de {año}");
+  selección por default del primer cliente; cambio de cliente actualiza
+  correctamente el panel de módulos (una vez corregida la condición de
+  carrera, confirmado con esperas explícitas por respuesta de red en vez de
+  timeouts a ciegas — mismo patrón de test que en sesiones anteriores);
+  toggle de módulo confirmado contra la tabla real (no solo la UI) y
+  confirmado que el conteo de la fila en la lista izquierda se actualiza sin
+  refetchear toda la lista.
+  - Se sembraron 2 academias de prueba temporales (una pausada, una con
+    varios módulos activos) vía la API real de super-admin (no inserts
+    directos) para tener un escenario multi-cliente representativo del
+    prototipo; se borraron al final junto con los 2 usuarios de prueba, y se
+    revirtió a mano el efecto colateral del bug de la condición de carrera
+    sobre `Melody Music` (la única academia real) — quedó verificado
+    (`vidriera_academia_modulos` con una sola fila, `vidriera` activo) que
+    Supabase terminó en exactamente el mismo estado en que se encontró.
 
 ---
 

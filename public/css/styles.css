@@ -1,3 +1,22 @@
+/**
+ * REGLA — cualquier clase toggleada vía el atributo `hidden` de JS (ej.
+ * `el.hidden = true/false`) que también declare `display` a algo distinto de
+ * `none` DEBE traer su propio `.clase[hidden] { display: none; }`.
+ *
+ * Por qué: el atributo `hidden` solo hace algo por la regla implícita
+ * `[hidden] { display: none }` de la hoja de estilos del navegador (user
+ * agent). Cualquier regla de autor (la nuestra, en este archivo) que fije
+ * `display` en esa misma clase gana SIEMPRE sobre esa regla del navegador,
+ * sin importar el orden ni la especificidad — el origen "autor" le gana al
+ * origen "user agent" en la cascada. El elemento queda con `hidden` en el
+ * DOM pero se sigue viendo en pantalla.
+ *
+ * Pasó dos veces en este proyecto sin que apareciera al leer el código: solo
+ * se notó mirando capturas de Playwright (`.mm-modal-backdrop` en la
+ * vidriera, `.mm-admin-gate`/`.mm-admin-shell` en el panel de admin — ver
+ * ESTADO.md sesiones #6 y #8). Antes de sumar una clase nueva con `display`
+ * que después se vaya a esconder con `hidden`, agregar el override acá mismo.
+ */
 :root {
   --ink: #1a1a1a;
   --body-text: #4a4a4a;
