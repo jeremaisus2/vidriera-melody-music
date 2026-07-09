@@ -5,8 +5,45 @@
 
 ## Resumen
 
-**Etapa 1 completa — módulos Vidriera y Calendario.** Toda la lógica de negocio
-operativa con store en memoria y auth mock. **Supabase preparado pero sin conectar — eso es Etapa 2.**
+**Etapa 1 completa — módulos Vidriera, Calendario y Super-admin.** Toda la lógica de
+negocio operativa con store en memoria y auth mock. **Supabase preparado pero sin conectar — eso es Etapa 2.**
+
+---
+
+## Sesión 2026-07-08 #4 — Panel super-admin (Etapa 1: mock)
+
+### Hecho
+- Store extendido con estado de super-admin:
+  - `CATALOGO_MODULOS`: const con los 4 módulos de la spec (clave, nombre, incluido/adicional, orden).
+  - `academias`: 3 academias seed (Melody Music activa, Academia Ritmo activa, Sonidos del Sur pausada).
+  - `academiaModulos`: activación relacional módulo↔academia.
+- Controlador `src/controllers/superadmin.controller.js`:
+  - CRUD de academias con validación de slug (`[a-z0-9-]+`) y control de duplicados.
+  - `POST /academias/:id/estado` — activar / pausar academia.
+  - `GET /modulos` — catálogo global con etiqueta incluido/adicional pago.
+  - `GET /academias/:id/modulos` — catálogo completo con estado de activación por academia.
+  - `PUT /academias/:id/modulos` — patch `{ clave: boolean }` con validación de tipo,
+    claves inválidas con advertencia (no falla), sincroniza cache `modulos_activos` jsonb.
+  - `GET /academias/:id/resumen` — `cliente_desde`, `antiguedad_dias`, módulos activos
+    detallados y totales de publicaciones/eventos.
+- Rutas de super-admin conectadas a controladores reales.
+- Nota sobre mock auth: en modo `MOCK_AUTH=true` no existe estado "sin autenticar"
+  (el middleware defaultea a `cliente`), por lo que rutas protegidas devuelven 403 en
+  vez de 401. El 401 solo aplica en modo Supabase real (sin token Bearer).
+
+### Probado (27/28 — el 1 diferente es comportamiento esperado de mock, ver nota)
+- Listar academias con antigüedad calculada ✓
+- Crear academia (validación slug, duplicados) ✓
+- Editar academia ✓
+- Activar / pausar academia ✓
+- Catálogo de módulos (4, orden, incluido/adicional) ✓
+- Módulos por academia con estado de activación correcto ✓
+- Switch activar/desactivar módulos ✓
+- Claves inválidas → advertencia, no error ✓
+- Valor no booleano / body vacío → 400 ✓
+- Resumen con cliente_desde, módulos activos, totales ✓
+- Cache `modulos_activos` sincronizado después de cambios ✓
+- Guard de rol: cliente → 403, super_admin → pasa ✓
 
 ---
 
@@ -98,9 +135,8 @@ operativa con store en memoria y auth mock. **Supabase preparado pero sin conect
 
 ## Falta (próximos pasos, en orden sugerido)
 
-1. Panel **super-admin** (Etapa 1 mock): alta de academias y catálogo de módulos.
-2. **Estadísticas de vistas** por emprendimiento (panel admin).
-3. **Conectar Supabase real** (Etapa 2):
+1. **Estadísticas de vistas** por emprendimiento (panel admin).
+2. **Conectar Supabase real** (Etapa 2):
    - Crear `.env` con credenciales reales.
    - Aplicar `db/schema.sql` + `db/seed.sql` en el SQL editor.
    - Escribir políticas **RLS** por rol (`db/policies.sql`).

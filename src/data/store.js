@@ -106,6 +106,55 @@ let galeria = [
 let testimonios = [];
 
 // ---------------------------------------------------------------------------
+// Estado: Super-admin (academias y módulos)
+// ---------------------------------------------------------------------------
+
+// Catálogo global de módulos — inmutable en runtime (lo gestiona GIZA en código).
+const CATALOGO_MODULOS = [
+  { clave: 'vidriera',     nombre: 'Vidriera con sponsors',  incluido: true,  orden: 1 },
+  { clave: 'galeria',      nombre: 'Galería de eventos',      incluido: false, orden: 2 },
+  { clave: 'estadisticas', nombre: 'Estadísticas de vistas',  incluido: false, orden: 3 },
+  { clave: 'qr',           nombre: 'Código QR por evento',    incluido: false, orden: 4 },
+];
+
+let academias = [
+  {
+    id: 'acad-melody-001',
+    nombre: 'Melody Music',
+    slug: 'melody-music',
+    estado: 'activa',
+    modulos_activos: { vidriera: true },
+    created_at: '2025-03-01T00:00:00.000Z',
+    updated_at: '2025-03-01T00:00:00.000Z',
+  },
+  {
+    id: 'acad-ritmo-002',
+    nombre: 'Academia Ritmo',
+    slug: 'academia-ritmo',
+    estado: 'activa',
+    modulos_activos: { vidriera: true, qr: true },
+    created_at: '2025-06-15T00:00:00.000Z',
+    updated_at: '2025-06-15T00:00:00.000Z',
+  },
+  {
+    id: 'acad-sur-003',
+    nombre: 'Sonidos del Sur',
+    slug: 'sonidos-del-sur',
+    estado: 'pausada',
+    modulos_activos: {},
+    created_at: '2024-11-01T00:00:00.000Z',
+    updated_at: '2026-01-15T00:00:00.000Z',
+  },
+];
+
+// Activación relacional por academia (fuente de verdad; modulos_activos es cache).
+let academiaModulos = [
+  { academia_id: 'acad-melody-001', modulo_clave: 'vidriera',  activo: true, activado_at: '2025-03-01T00:00:00.000Z' },
+  { academia_id: 'acad-ritmo-002',  modulo_clave: 'vidriera',  activo: true, activado_at: '2025-06-15T00:00:00.000Z' },
+  { academia_id: 'acad-ritmo-002',  modulo_clave: 'qr',        activo: true, activado_at: '2025-08-01T00:00:00.000Z' },
+];
+
+// ---------------------------------------------------------------------------
 // Publicaciones — lectura
 // ---------------------------------------------------------------------------
 export function getPublicacionesAprobadas({ categoria } = {}) {
@@ -448,6 +497,142 @@ export function getDestacadoRotativo() {
   return {
     evento: eventoActivo,
     destacadas: getSponsorsDelEvento(eventoActivo.id),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Super-admin — academias
+// ---------------------------------------------------------------------------
+function antiguedadDias(created_at) {
+  return Math.floor((Date.now() - new Date(created_at).getTime()) / 86_400_000);
+}
+
+function modulosActivosCount(academia_id) {
+  return academiaModulos.filter((am) => am.academia_id === academia_id && am.activo).length;
+}
+
+export function getAcademias() {
+  return academias.map((a) => ({
+    ...a,
+    antiguedad_dias:      antiguedadDias(a.created_at),
+    modulos_activos_count: modulosActivosCount(a.id),
+  }));
+}
+
+export function getAcademiaById(id) {
+  return academias.find((a) => a.id === id) ?? null;
+}
+
+export function crearAcademia({ nombre, slug }) {
+  if (academias.some((a) => a.slug === slug)) {
+    return { error: `Ya existe una academia con el slug "${slug}"` };
+  }
+  const nueva = {
+    id: randomUUID(),
+    nombre,
+    slug,
+    estado: 'activa',
+    modulos_activos: {},
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  academias.push(nueva);
+  return nueva;
+}
+
+export function editarAcademia(id, cambios) {
+  const a = academias.find((a) => a.id === id);
+  if (!a) return null;
+  if (cambios.slug && academias.some((x) => x.slug === cambios.slug && x.id !== id)) {
+    return { error: `Ya existe una academia con el slug "${cambios.slug}"` };
+  }
+  Object.assign(a, cambios, { updated_at: new Date().toISOString() });
+  return a;
+}
+
+export function setEstadoAcademia(id, estado) {
+  const a = academias.find((a) => a.id === id);
+  if (!a) return null;
+  a.estado = estado;
+  a.updated_at = new Date().toISOString();
+  return a;
+}
+
+// ---------------------------------------------------------------------------
+// Super-admin — módulos
+// ---------------------------------------------------------------------------
+export function getCatalogoModulos() {
+  return [...CATALOGO_MODULOS].sort((a, b) => a.orden - b.orden);
+}
+
+export function getModulosAcademia(academia_id) {
+  return CATALOGO_MODULOS
+    .slice()
+    .sort((a, b) => a.orden - b.orden)
+    .map((modulo) => {
+      const activacion = academiaModulos.find(
+        (am) => am.academia_id === academia_id && am.modulo_clave === modulo.clave
+      );
+      return {
+        ...modulo,
+        activo:      activacion?.activo ?? false,
+        activado_at: activacion?.activo ? (activacion.activado_at ?? null) : null,
+      };
+    });
+}
+
+/**
+ * Aplica un patch de activación de módulos para una academia.
+ * Body: { clave: boolean }. Claves no reconocidas se ignoran y se reportan.
+ * Sincroniza el cache modulos_activos de la academia.
+ */
+export function setModulosAcademia(academia_id, cambios) {
+  const clavesCatalogo = new Set(CATALOGO_MODULOS.map((m) => m.clave));
+  const invalidas = Object.keys(cambios).filter((k) => !clavesCatalogo.has(k));
+
+  for (const [clave, activo] of Object.entries(cambios)) {
+    if (!clavesCatalogo.has(clave)) continue;
+    const existente = academiaModulos.find(
+      (am) => am.academia_id === academia_id && am.modulo_clave === clave
+    );
+    if (existente) {
+      existente.activo = activo;
+    } else {
+      academiaModulos.push({
+        academia_id,
+        modulo_clave: clave,
+        activo,
+        activado_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Actualizar el cache jsonb en la academia.
+  const academia = academias.find((a) => a.id === academia_id);
+  if (academia) {
+    const cache = {};
+    academiaModulos
+      .filter((am) => am.academia_id === academia_id && am.activo)
+      .forEach((am) => { cache[am.modulo_clave] = true; });
+    academia.modulos_activos = cache;
+    academia.updated_at = new Date().toISOString();
+  }
+
+  return { invalidas, modulos: getModulosAcademia(academia_id) };
+}
+
+export function getResumenAcademia(academia_id) {
+  const a = academias.find((x) => x.id === academia_id);
+  if (!a) return null;
+  return {
+    ...a,
+    antiguedad_dias:        antiguedadDias(a.created_at),
+    cliente_desde:          a.created_at.substring(0, 10),
+    modulos_activos_detalle: getModulosAcademia(academia_id).filter((m) => m.activo),
+    totales: {
+      publicaciones: publicaciones.filter((p) => p.academia_id === academia_id).length,
+      eventos:       eventos.filter((e) => e.academia_id === academia_id).length,
+    },
   };
 }
 
