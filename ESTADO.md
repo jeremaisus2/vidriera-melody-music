@@ -172,9 +172,9 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ### Lo que falta para cerrar Etapa 2
 
-1. **Handoff visual** → vidriera (2a/2b) ✅ implementada (ver sesión #6 abajo).
-   Falta el panel de admin de academia (`2c`) y el panel de super-admin (`3a`),
-   ambos solo versión desktop según el README del handoff.
+1. **Handoff visual** → vidriera (2a/2b) ✅ y panel de admin de academia (2c) ✅
+   implementados (ver sesiones #6 y #8 abajo). Falta el panel de super-admin (`3a`),
+   solo versión desktop según el README del handoff.
 2. (Menor, no bloqueante) Decidir si las rutas públicas de vidriera/calendario deben
    filtrar por academia cuando convivan varias academias en la misma instalación —
    hoy devuelven datos de todas.
@@ -194,6 +194,95 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
   (`.env` → `APP_URL`, ver `src/config/env.js`).
 - Scoping por academia en rutas públicas (vidriera/calendario) para cuando conviva
   más de una academia en la misma instalación — hoy devuelven datos de todas.
+
+---
+
+### Sesión 2026-07-09 #8 — Frontend: panel de administrador de academia (`2c`)
+
+Implementada la tercera pantalla del handoff visual: cola de aprobación +
+estadísticas de vistas para el staff de la academia. Solo versión desktop (así
+lo pide el README del handoff). No se tocó el backend — la API de moderación y
+estadísticas ya existía completa desde Etapa 1/2.
+
+- **Página separada** `public/admin.html` + `public/css/admin.css` +
+  `public/js/admin.js`, reusando los tokens/componentes de `styles.css`
+  (header, avatar, pills de negocio, modal) en vez de duplicarlos. Mismo
+  mecanismo de login liviano que la vidriera (fetch directo a
+  `/auth/v1/token` de Supabase Auth), pero con su propia clave de
+  `localStorage` (`mm_admin_auth_session`, separada de `mm_auth_session`) para
+  no pisar una sesión de familia abierta en otra pestaña del mismo navegador.
+- **Gate de acceso**: la página siempre arranca mostrando el login; recién
+  después de autenticar se verifica el rol llamando a
+  `GET /api/admin/moderacion` — si devuelve 403 (no-admin) se muestra el error
+  y se descarta el token, sin necesidad de un endpoint "whoami" aparte.
+- **Cola de aprobación**: `GET /api/admin/moderacion` devuelve
+  `{ publicaciones, ediciones }` por separado; el frontend las combina en una
+  sola lista ordenada por `created_at` descendente, con pill "Nuevo" (para
+  publicaciones) o "Edición" (para ediciones). Para una edición, el preview
+  mezcla `publicacion` (dato aprobado actual) con `cambios` (jsonb parcial) para
+  mostrar cómo va a quedar; la nota "Cambios enviados" resume `cambios` campo
+  por campo con labels en español (no existe una descripción en texto libre
+  como en el prototipo, que era un dato hardcodeado — se optó por listar los
+  campos reales en vez de inventar una oración).
+- **Colores del prototipo, no tomados literalmente**: el script del prototipo
+  (`statusStyle`/`rowStyle` de la cola) todavía usaba el acento burgundy de la
+  dirección de diseño vieja (turno 1), aunque el README dice explícitamente que
+  esa paleta "no se usa en las pantallas finales, ignorar". Se implementaron los
+  pills con los colores que sí describe el README para `2c`: "Nuevo" con el tinte
+  verde-grisáceo de estado (`#eef2ef`/`#3d6b52`, mismo que "Activo" en el resto
+  del sistema) y "Edición" con el tinte verde de acento principal
+  (`#eaf1e7`/`#4f6d48`); mismo criterio para el borde izquierdo de la fila
+  seleccionada (verde de acento, no burgundy).
+- **Motivo de rechazo**: el prototipo no lo pedía (mock estático), pero la API
+  real lo exige (`POST .../rechazar` responde 400 sin `motivo`). Se resolvió con
+  un `prompt()` del navegador al hacer click en "Rechazar" — simple y consistente
+  con el uso de `confirm()` ya existente en la vidriera para cerrar sesión, sin
+  sumar un modal nuevo para esto.
+- **Estadísticas de vistas**: `GET /api/admin/estadisticas/vistas?estado=approved`
+  (se filtra a aprobadas: sin el filtro, la cola de pendientes también aparecería
+  con 0 vistas, ensuciando el ranking). El subtítulo del prototipo decía "Últimos
+  30 días", pero la API no tiene ventana de tiempo (es acumulado histórico) — se
+  cambió el copy a "Total acumulado" en vez de mostrar un dato falso. Se
+  re-consulta cada vez que se abre la pestaña (no solo al loguearse), para que
+  una publicación recién aprobada no quede afuera hasta recargar la página.
+- **Verificado end-to-end contra Supabase real** (servidor HTTP real, Playwright
+  con Chromium headless):
+  - Login con cuenta `cliente` (no-admin) rechazado con 403 y mensaje mostrado;
+    login con cuenta `admin` real entra correctamente.
+  - Cola con una publicación nueva + una edición renderizadas con los datos
+    reales (pill, familia, tiempo relativo, thumbnail); preview de la edición
+    con la nota de cambios correcta; preview de la nueva sin nota de cambios.
+  - Flujo real de rechazo (con motivo vía `prompt()`) y de aprobación —
+    confirmado no solo en la UI sino contra la tabla real: el rechazo quedó con
+    `estado: rejected` y el `motivo_rechazo` capturado, la aprobación de la
+    edición aplicó los `cambios` sobre la publicación pública real.
+  - Estadísticas: ranking ordenado por vistas descendente con barras
+    proporcionales correctas (10 vistas → 100%, 5 vistas → 50%), y confirmado
+    que una publicación recién aprobada (0 vistas) aparece en la lista al
+    reabrir la pestaña sin recargar la página.
+  - **Dos bugs reales encontrados y corregidos** (misma clase que el bug del
+    modal de login de la sesión #6, no detectables solo leyendo el código):
+    `.mm-admin-gate` y `.mm-admin-shell` declaraban `display: flex` en la hoja
+    de estilos, lo que pisaba el `display: none` implícito del atributo
+    `hidden` por prioridad de cascada (una regla de autor siempre gana sobre la
+    hoja de estilos del navegador) — el gate de login y el panel de dos
+    columnas quedaban "ocultos" solo en el atributo pero seguían visibles en
+    pantalla. Se agregó `[hidden]{display:none}` explícito para ambas clases.
+    Detectado porque el screenshot de Playwright mostraba el login gate
+    superpuesto arriba del panel ya autenticado, algo que solo se nota mirando
+    la captura, no leyendo el HTML/CSS.
+  - Como en sesiones anteriores, varias corridas de test con `waitForTimeout` a
+    ciegas dieron resultados inconsistentes entre sí (conteos de filas de la
+    cola después de aprobar/rechazar); reescribir las aserciones esperando
+    explícitamente la respuesta de red relevante (`page.waitForResponse`) las
+    volvió determinísticas — la app funcionaba bien, el timing del test no
+    alcanzaba.
+  - Datos y usuarios de prueba (7 publicaciones, 2 usuarios) borrados al final
+    por id exacto; Supabase quedó en el mismo estado en que se encontró.
+- **Nav de la vidriera**: el link "Admin" del header, que hasta ahora era un
+  `<span>` inerte con tooltip "Disponible próximamente", ahora apunta a
+  `/admin.html` (era el placeholder dejado en la sesión #6 a propósito para
+  este momento).
 
 ---
 
