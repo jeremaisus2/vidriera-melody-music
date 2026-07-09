@@ -54,8 +54,8 @@
     <nav class="mm-sidebar-nav">
       <button type="button" class="mm-sidebar-item active" id="navQueueBtn">Cola de aprobación</button>
       <button type="button" class="mm-sidebar-item" id="navStatsBtn">Estadísticas de vistas</button>
+      <button type="button" class="mm-sidebar-item" id="navOrdenBtn">Orden de la vidriera</button>
       <div class="mm-sidebar-divider"></div>
-      <span class="mm-sidebar-item disabled" title="Disponible próximamente">Orden de la vidriera</span>
       <span class="mm-sidebar-item disabled" title="Disponible próximamente">Textos de la página</span>
     </nav>
   </aside>
@@ -78,6 +78,26 @@
       <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Vistas por emprendimiento</div>
       <div class="mm-stats-subtitle">Total acumulado · solo publicaciones aprobadas</div>
       <div id="statsList"></div>
+    </section>
+
+    <section id="tabOrden" class="mm-orden-wrap" hidden>
+      <div class="mm-orden-header">
+        <div>
+          <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Orden de la vidriera</div>
+          <div class="mm-stats-subtitle" style="margin-bottom:0;">Arrastrá para reordenar cómo aparecen en la vidriera pública. "Fijar como destacado" anula la rotación automática del banner de la semana.</div>
+        </div>
+        <div class="mm-orden-actions">
+          <button type="button" class="mm-btn-outline" id="undoBtn" disabled>Deshacer</button>
+          <button type="button" class="mm-btn-outline" id="redoBtn" disabled>Rehacer</button>
+        </div>
+      </div>
+
+      <div class="mm-destacado-banner" id="destacadoOverrideBanner" hidden>
+        <span>Destacado fijo activo: <strong id="destacadoOverrideName"></strong></span>
+        <button type="button" class="mm-btn-outline" id="clearOverrideBtn">Quitar anulación</button>
+      </div>
+
+      <div id="ordenList" class="mm-orden-list"></div>
     </section>
   </main>
 

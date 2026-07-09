@@ -312,7 +312,27 @@ async function loadDestacado() {
     return;
   }
 
-  if (!data.evento) {
+  const link = document.getElementById('destacadoLink');
+
+  // Anulación puntual del admin (Etapa C): destaca UNA publicación puntual,
+  // sin contexto de evento — no hay sponsors que mostrar debajo.
+  if (data.tipo === 'override') {
+    const pub = data.publicacion;
+    destacadoWrap.hidden = false;
+    document.getElementById('destacadoText').textContent = `Esta semana destacamos a ${pub.nombre}.`;
+    if (pub.whatsapp) {
+      link.href = `https://wa.me/${encodeURIComponent(pub.whatsapp)}`;
+      link.target = '_blank';
+      link.textContent = `Ver a ${pub.nombre} →`;
+      link.style.display = '';
+    } else {
+      link.style.display = 'none';
+    }
+    sponsorsWrap.hidden = true;
+    return;
+  }
+
+  if (data.tipo !== 'automatico' || !data.evento) {
     destacadoWrap.hidden = true;
     sponsorsWrap.hidden = true;
     return;
@@ -323,7 +343,9 @@ async function loadDestacado() {
   destacadoWrap.hidden = false;
   document.getElementById('destacadoText').textContent =
     `Esta semana destacamos a los sponsors de "${evento.nombre}" (${formatFechaCorta(evento.fecha)}).`;
-  const link = document.getElementById('destacadoLink');
+  link.href = '#sponsors';
+  link.removeAttribute('target');
+  link.textContent = 'Ver sponsors →';
   link.style.display = destacadas.length > 0 ? '' : 'none';
 
   if (destacadas.length === 0) {

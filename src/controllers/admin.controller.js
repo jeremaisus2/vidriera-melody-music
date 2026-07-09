@@ -217,3 +217,61 @@ export async function estadisticasVistas(req, res, next) {
     return next(err);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Orden de la vidriera + anulación puntual del destacado (Etapa C)
+// ---------------------------------------------------------------------------
+export async function listarPublicacionesAdmin(req, res, next) {
+  try {
+    const { estado } = req.query;
+    if (estado && !ESTADOS_VALIDOS.includes(estado)) {
+      return res.status(400).json({ error: `Estado no válido: "${estado}". Opciones: ${ESTADOS_VALIDOS.join(', ')}` });
+    }
+
+    const [publicaciones, destacado_override_id] = await Promise.all([
+      publicacionesRepo.getPublicacionesAcademia(req.perfil.academia_id, { estado }),
+      eventosRepo.getAcademiaDestacadoOverrideId(req.perfil.academia_id),
+    ]);
+
+    return res.json({ publicaciones, destacado_override_id });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function actualizarOrden(req, res, next) {
+  try {
+    const { orden } = req.body;
+    if (!Array.isArray(orden) || orden.length === 0 || orden.some((id) => typeof id !== 'string')) {
+      return res.status(400).json({ error: 'Se requiere "orden" como array de ids (strings), ej: { "orden": ["id1", "id2"] }' });
+    }
+
+    const resultado = await publicacionesRepo.setOrden(req.perfil.academia_id, orden);
+    const respuesta = { ok: true };
+    if (resultado.invalidas.length > 0) {
+      respuesta.advertencia = `Ids ignorados (no pertenecen a esta academia): ${resultado.invalidas.join(', ')}`;
+    }
+    return res.json(respuesta);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function actualizarDestacadoOverride(req, res, next) {
+  try {
+    const { publicacion_id } = req.body;
+    if (publicacion_id !== null && typeof publicacion_id !== 'string') {
+      return res.status(400).json({ error: 'El campo publicacion_id debe ser un string o null (para quitar la anulación)' });
+    }
+
+    const resultado = await eventosRepo.setDestacadoOverride(req.perfil.academia_id, publicacion_id);
+    if (resultado.error) return res.status(400).json({ error: resultado.error });
+
+    return res.json({
+      mensaje: publicacion_id ? 'Destacado fijado.' : 'Anulación quitada, vuelve a la rotación automática.',
+      destacado_override_id: resultado.destacado_override_id,
+    });
+  } catch (err) {
+    return next(err);
+  }
+}

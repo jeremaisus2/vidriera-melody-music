@@ -48,13 +48,17 @@ el panel sin re-emitir JWTs. `super_admin` no está atado a una academia.
 Todas con prefijo `vidriera_`:
 
 - `vidriera_academias` — clientes. Incluye `estado` (activa/pausada), `created_at`
-  (antigüedad) y `modulos_activos` (jsonb) desde el inicio, por recomendación de la spec.
+  (antigüedad), `modulos_activos` (jsonb) desde el inicio, y
+  `destacado_override_id` (FK a `vidriera_publicaciones`, nullable — anulación
+  puntual del destacado rotativo, panel admin "Orden de la vidriera", Etapa C).
 - `vidriera_modulos` — catálogo estable de módulos (`incluido` = plan base vs. adicional).
 - `vidriera_academia_modulos` — activación relacional módulo↔academia.
 - `vidriera_perfiles` — mapea `auth.users` → rol + academia.
 - `vidriera_categorias` — categorías de la vidriera (fijas, en tabla por extensibilidad).
 - `vidriera_publicaciones` — dato público del emprendimiento (+ `vistas`, `estado`,
-  `familia`: nombre de la familia dueña, requerido, se muestra en la tarjeta).
+  `familia`: nombre de la familia dueña, requerido, se muestra en la tarjeta;
+  `orden`: integer nullable, orden manual en la grilla pública — `null` cae a
+  `created_at desc` como antes, Etapa C).
 - `vidriera_publicaciones_ediciones` — ediciones propuestas en revisión (jsonb `cambios`).
 - `vidriera_eventos` — calendario (+ `lugar`: opcional, texto libre).
 - `vidriera_evento_sponsors` — sponsors por evento (base del destacado rotativo).

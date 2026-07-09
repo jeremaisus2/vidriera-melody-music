@@ -15,6 +15,9 @@ import {
   agregarFoto,
   eliminarFoto,
   estadisticasVistas,
+  listarPublicacionesAdmin,
+  actualizarOrden,
+  actualizarDestacadoOverride,
 } from '../controllers/admin.controller.js';
 
 export const adminRouter = Router();
@@ -41,3 +44,10 @@ adminRouter.delete('/galeria/:foto_id',  eliminarFoto);
 
 // --- Estadísticas (Etapa 2) ---
 adminRouter.get('/estadisticas/vistas',  estadisticasVistas);
+
+// --- Orden de la vidriera + anulación puntual del destacado (Etapa C) ---
+// Rutas estáticas antes de cualquier /:id — no hay /publicaciones/:id en este
+// router hoy, pero se mantiene el mismo criterio que el resto del proyecto.
+adminRouter.get('/publicaciones',           listarPublicacionesAdmin);
+adminRouter.put('/publicaciones/orden',     actualizarOrden);
+adminRouter.put('/destacado-override',      actualizarDestacadoOverride);

@@ -80,6 +80,8 @@ create table if not exists vidriera_publicaciones (
   estado         text not null default 'pending' check (estado in ('pending', 'approved', 'rejected')),
   motivo_rechazo text,
   vistas         bigint not null default 0,
+  orden          integer,          -- orden manual en la grilla pública (admin, Etapa C). null = sin ordenar
+                                    -- a mano todavía; se ordena por created_at desc como antes.
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
@@ -87,6 +89,17 @@ create table if not exists vidriera_publicaciones (
 create index if not exists idx_vidriera_pub_academia on vidriera_publicaciones(academia_id);
 create index if not exists idx_vidriera_pub_estado on vidriera_publicaciones(estado);
 create index if not exists idx_vidriera_pub_owner on vidriera_publicaciones(owner_user_id);
+
+-- destacado_override_id vive en vidriera_academias pero se declara acá (con
+-- alter, no inline en el create table de arriba) porque vidriera_academias se
+-- define antes que vidriera_publicaciones en este archivo y la FK necesita
+-- que la tabla referenciada ya exista.
+alter table vidriera_academias
+  add column if not exists destacado_override_id uuid references vidriera_publicaciones(id) on delete set null;
+-- Anulación puntual del destacado rotativo (Etapa C, panel admin): si está
+-- seteado, el admin fijó manualmente qué publicación se muestra en el banner
+-- destacado de la vidriera pública, en vez de la rotación automática por
+-- evento próximo. null = comportamiento automático (default).
 
 -- Ediciones propuestas sobre una publicación (aprobada o no): quedan en revisión.
 -- Al aprobar, se aplican los campos sobre vidriera_publicaciones.

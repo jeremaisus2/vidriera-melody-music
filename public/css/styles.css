@@ -308,6 +308,7 @@ a:hover { color: #3a5234; }
 .mm-btn-fill { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
 .mm-btn-fill:hover { background: #3a5234; }
 .mm-btn-outline { background: #fff; border: 1px solid var(--border); color: var(--body-text); }
+.mm-btn-fill:disabled, .mm-btn-outline:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ---------- Toast ---------- */
 .mm-toast {

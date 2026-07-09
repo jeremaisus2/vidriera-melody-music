@@ -59,14 +59,25 @@ export async function misPublicaciones(req, res, next) {
 }
 
 /**
- * Destacado rotativo: sponsors del evento más próximo cuya ventana está activa.
- * Ventana = 7 días antes a 2 días después del evento.
- * Devuelve null en `destacado` si no hay evento activo.
+ * Destacado de la semana. Tres resultados posibles (discriminados por `tipo`):
+ *   - 'override':   el admin fijó a mano una publicación puntual (Etapa C).
+ *                    Anula la rotación automática mientras esté activa.
+ *   - 'automatico':  sin anulación — sponsors del evento más próximo cuya
+ *                    ventana está activa (7 días antes a 2 días después).
+ *   - 'ninguno':     ni anulación ni evento activo en ventana.
  */
 export async function destacadoRotativo(req, res, next) {
   try {
+    const override = await eventosRepo.getDestacadoOverrideActivo();
+    if (override) {
+      return res.json({ tipo: 'override', publicacion: override });
+    }
+
     const destacado = await eventosRepo.getDestacadoRotativo();
-    return res.json(destacado ?? { destacado: null, mensaje: 'Sin evento activo en ventana de destacado.' });
+    if (!destacado) {
+      return res.json({ tipo: 'ninguno', mensaje: 'Sin evento activo en ventana de destacado.' });
+    }
+    return res.json({ tipo: 'automatico', ...destacado });
   } catch (err) {
     return next(err);
   }

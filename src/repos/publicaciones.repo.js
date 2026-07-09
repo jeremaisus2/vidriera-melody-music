@@ -3,11 +3,16 @@ import { supabaseAdmin, supabasePublic } from '../config/supabase.js';
 // ---------------------------------------------------------------------------
 // Publicaciones — lectura pública (cliente anon; RLS filtra a estado=approved)
 // ---------------------------------------------------------------------------
+// Orden: primero lo ordenado a mano (orden asc), después lo que todavía no
+// tiene orden asignado (orden null → nullsFirst:false lo manda al final),
+// y dentro de "sin ordenar" el criterio viejo (más nuevo primero) para que
+// una publicación recién aprobada no se pierda hasta que un admin la ubique.
 export async function getPublicacionesAprobadas({ categoria } = {}) {
   let query = supabasePublic
     .from('vidriera_publicaciones')
     .select('*')
     .eq('estado', 'approved')
+    .order('orden', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false });
 
   if (categoria) query = query.eq('categoria', categoria);
@@ -211,6 +216,55 @@ export async function moderarEdicion(academia_id, id, accion, motivo = null) {
   }
 
   return { edicion, publicacion };
+}
+
+// ---------------------------------------------------------------------------
+// Orden manual de la vidriera (panel admin, Etapa C)
+// ---------------------------------------------------------------------------
+export async function getPublicacionesAcademia(academia_id, { estado } = {}) {
+  let query = supabaseAdmin
+    .from('vidriera_publicaciones')
+    .select('*')
+    .eq('academia_id', academia_id)
+    .order('orden', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false });
+
+  if (estado) query = query.eq('estado', estado);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Aplica un orden manual completo: `ids` es el array de ids en el orden
+ * deseado (posición en el array = nuevo valor de `orden`, 0-based). Se
+ * recalculan TODOS los ids recibidos en cada llamada — más simple y robusto
+ * que un esquema de índices fraccionarios, y de sobra para el volumen de una
+ * vidriera de academia (decenas de publicaciones, no miles).
+ * Ids que no pertenecen a la academia se ignoran y se reportan aparte.
+ */
+export async function setOrden(academia_id, ids) {
+  const { data: existentes, error: errorSelect } = await supabaseAdmin
+    .from('vidriera_publicaciones')
+    .select('id')
+    .eq('academia_id', academia_id)
+    .in('id', ids);
+  if (errorSelect) throw errorSelect;
+
+  const validIds = new Set(existentes.map((p) => p.id));
+  const invalidas = ids.filter((id) => !validIds.has(id));
+  const validas = ids.filter((id) => validIds.has(id));
+
+  const resultados = await Promise.all(
+    validas.map((id, i) =>
+      supabaseAdmin.from('vidriera_publicaciones').update({ orden: i }).eq('id', id)
+    )
+  );
+  const errorUpdate = resultados.find((r) => r.error)?.error;
+  if (errorUpdate) throw errorUpdate;
+
+  return { invalidas };
 }
 
 // ---------------------------------------------------------------------------

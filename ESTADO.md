@@ -193,7 +193,9 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
   dominio/subdominio real antes de imprimir o compartir cualquier QR de producción
   (`.env` → `APP_URL`, ver `src/config/env.js`).
 - Scoping por academia en rutas públicas (vidriera/calendario) para cuando conviva
-  más de una academia en la misma instalación — hoy devuelven datos de todas.
+  más de una academia en la misma instalación — hoy devuelven datos de todas. La
+  anulación puntual del destacado (sesión #13) hereda esta misma limitación a
+  propósito (mismo criterio que ya regía) — ver detalle en esa sesión.
 - **Alta de familias**: hoy es 100% manual vía `scripts/crear-usuario.mjs` (ver
   sesión #10). Falta decidir si el negocio necesita self-registration antes de
   producción, y si es así, si el registro es libre o requiere invitación/código
@@ -203,6 +205,120 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
   `ARQUITECTURA.md` §6.2. El README del `design-bundle/` quedó desactualizado en
   ese punto puntual (fidelidad de sombras/profundidad); el resto del handoff
   (layout, tipografía, colores, copy, interacciones) sigue vigente tal cual.
+
+---
+
+### Sesión 2026-07-09 #13 — Etapa C: orden manual de la vidriera + anulación puntual del destacado + deshacer/rehacer
+
+Construida la sección "Orden de la vidriera" que quedó preparada (inerte) en
+la barra lateral desde la Etapa B (sesión #12). Tres features, todas dentro
+de esa misma pantalla: orden manual por drag & drop, fijar/quitar un
+destacado puntual (anula la rotación automática), y deshacer/rehacer de los
+cambios de orden dentro de la sesión de navegador.
+
+**Schema** (`db/migrations/003_orden_destacado_override.sql`, corrida por el
+usuario en el SQL Editor — sin CLI/psql en este entorno para aplicarla yo
+mismo, mismo procedimiento que las migraciones 001/002):
+- `vidriera_publicaciones.orden` (integer, nullable). `null` = todavía sin
+  ordenar a mano, cae al criterio viejo (`created_at desc`) como fallback —
+  una publicación recién aprobada no queda invisible hasta que un admin la
+  ubique.
+- `vidriera_academias.destacado_override_id` (uuid, FK a
+  `vidriera_publicaciones`, `on delete set null`). Se declaró con `alter
+  table` en vez de inline en el `create table` de `vidriera_academias`
+  (`db/schema.sql`) porque esa tabla se define ANTES que
+  `vidriera_publicaciones` en el archivo y la FK necesita que la tabla
+  referenciada ya exista — el `alter` se agregó después del `create table
+  vidriera_publicaciones`.
+- Sin cambios en `policies.sql`: ambas columnas se escriben siempre con
+  `supabaseAdmin` (service_role) desde el panel de admin, mismo criterio que
+  el resto de las escrituras de administración — RLS es a nivel de fila, no
+  de columna, y las políticas de SELECT existentes siguen aplicando igual.
+
+**Orden manual — diseño**: en vez de un esquema de índices fraccionarios,
+cada guardado recalcula `orden = 0..N-1` para TODOS los ids recibidos
+(`setOrden` en `publicaciones.repo.js`) — más simple y de sobra para el
+volumen de una vidriera de academia (decenas de publicaciones). Nuevo
+`GET /api/admin/publicaciones?estado=approved` (scoping por academia) y
+`PUT /api/admin/publicaciones/orden { orden: [id, id, ...] }`. La vidriera
+pública (`getPublicacionesAprobadas`) ahora ordena `orden asc nullsFirst:false,
+created_at desc` en vez de solo `created_at desc`.
+
+**Anulación del destacado — diseño**: `GET /api/publicaciones/destacado`
+(público) cambió de forma — antes devolvía `{evento, destacadas}` o
+`{destacado:null, mensaje}`; ahora es `{tipo: 'override'|'automatico'|'ninguno',
+...}`, discriminado por `tipo`. Esto **rompe compatibilidad hacia atrás en el
+contrato del endpoint**, así que `vidriera.js` (`loadDestacado`) se actualizó
+para manejar los tres casos — el caso `'automatico'` se comporta exactamente
+igual que antes (mismo copy, mismo link a `#sponsors`), solo cambió el
+wrapper. El caso `'override'` no tiene contexto de evento (una sola
+publicación fijada a mano), así que oculta la franja de sponsors y linkea
+directo al WhatsApp de esa publicación en vez de a `#sponsors` — es además
+más fiel al prototipo original, que linkeaba `wa.me` directo desde el banner
+(la sesión #6 había implementado el caso automático apuntando a `#sponsors`,
+que sigue así por continuidad, no se tocó).
+- `getDestacadoOverrideActivo()` (`eventos.repo.js`) usa `supabaseAdmin`
+  aunque es para una ruta pública: `vidriera_academias` no es de lectura
+  pública por RLS (`academias_select` exige rol admin/super_admin), mismo
+  criterio ya usado en `statsEvento()` — el dato resultante es público aunque
+  la tabla fuente no lo sea. Si el override apunta a una publicación que
+  después se rechazó o se borró, se degrada a la rotación automática en vez
+  de romper (chequeo `estado = 'approved'` al resolver el override).
+- **Mismo límite de scoping por academia que ya existía** (anotado arriba en
+  "Decisiones pendientes"): la consulta pública del override no filtra por
+  academia — devuelve el primer override activo que encuentre en cualquier
+  academia. Es consistente con que publicaciones/eventos públicos tampoco
+  scopean hoy (instalación de una sola academia activa en la práctica), no
+  una inconsistencia nueva introducida acá.
+
+**Deshacer/rehacer**: pedido explícito de que NO persista a un F5 — vive en
+memoria (`currentOrder`/`undoStack`/`redoStack` en `admin.js`), se inicializa
+una sola vez en `loadOrden()` (a diferencia de "Estadísticas", que sí
+re-fetchea en cada visita a la pestaña, "Orden de la vidriera" NO —
+recargar destruiría el historial). Cada drag hace guardado optimista
+(re-pinta al toque, persiste en el fondo, toast si falla) y empuja un
+snapshot al `undoStack`; deshacer/rehacer solo mueven `currentOrder` entre
+ambos stacks y vuelven a guardar — no hay lógica especial de "revertir", es
+la misma función `saveOrder` de siempre aplicada a un array distinto. Fijar/
+quitar el destacado NO entra en este historial (pedido explícito: el
+deshacer es solo para el orden).
+
+**UI**: filas arrastrables con HTML5 drag & drop nativo (sin librería,
+consistente con el resto del proyecto). El pedido de "tipo pizarra" se tomó
+como justificación para que estas filas SÍ lleven la sombra marcada
+(`--shadow-card`/`--card-radius`, sesión #11) a diferencia de las filas de
+lista de la cola de admin o de clientes en super-admin (que no la llevan
+—son listas pasivas, esto son objetos que se arrastran).
+
+**Bugs reales encontrados y corregidos durante la verificación:**
+- El servidor de desarrollo (`node --watch`) no recogió los cambios de rutas
+  nuevas en `admin.routes.js` — quedó sirviendo código viejo (404 en
+  `GET /api/admin/publicaciones` pese a que el archivo y el router, revisados
+  en un proceso Node nuevo, estaban correctos). Se resolvió reiniciando el
+  proceso. Vale la pena tenerlo presente: `--watch` no es 100% confiable para
+  detectar todos los cambios de archivos nuevos/reestructurados.
+- **Mismo bug de `[hidden]` documentado en sesiones anteriores, esta vez sí
+  se me escapó**: `.mm-destacado-banner` (el aviso "Destacado fijo activo")
+  declaraba `display: flex` sin el override `[hidden]{display:none}` — pese a
+  tener la regla escrita como checklist en `styles.css` desde la sesión #9.
+  Encontrado porque el test de Playwright esperaba que el banner se ocultara
+  al hacer click en "Quitar anulación" y no lo hacía. Corregido agregando el
+  override que faltaba. Confirma que la regla documentada ayuda pero no
+  reemplaza la verificación real — hay que seguir revisando cada clase nueva
+  con `display` a mano.
+
+**Verificado end-to-end contra Supabase real con Playwright** (servidor HTTP
+real, 4 publicaciones aprobadas sembradas vía el flujo real crear+aprobar):
+drag & drop de una fila confirmado contra la tabla (`orden` recalculado
+0..3), la vidriera pública reflejando el nuevo orden tanto por API como
+visualmente en la grilla; fijar un destacado confirmado en la vidriera
+pública real (banner, sin sponsors, link a WhatsApp correcto, orden de grilla
+sin cambios); quitar la anulación confirmado (banner se oculta, vidriera
+vuelve a modo automático); deshacer y rehacer confirmados dentro de la misma
+sesión de página (orden vuelve exacto al estado anterior/siguiente). Sin
+errores de consola en la corrida final. Datos y usuarios de prueba borrados
+al final por id exacto; confirmado que `destacado_override_id` de Melody
+Music quedó en `null` (mismo estado en que se encontró).
 
 ---
 

@@ -119,3 +119,42 @@ button.mm-sidebar-item:hover { background: var(--surface); }
 .mm-stats-views { font-size: 12.5px; color: var(--muted); }
 .mm-stats-track { height: 8px; border-radius: 4px; background: var(--stat-track); overflow: hidden; }
 .mm-stats-fill { height: 8px; border-radius: 4px; background: var(--accent); }
+
+/* ---------- Orden de la vidriera (Etapa C) ---------- */
+.mm-orden-wrap { padding: 32px 40px; max-width: 760px; }
+.mm-orden-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+.mm-orden-header .mm-stats-subtitle { max-width: 480px; }
+.mm-orden-actions { display: flex; gap: 8px; flex: none; }
+
+.mm-destacado-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  background: var(--accent-tint); border: 1px solid var(--accent-border); border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 22px; font-size: 13px; color: #33422e;
+}
+.mm-destacado-banner[hidden] { display: none; }
+
+/* "Tipo pizarra": a diferencia de las filas de lista (cola de admin, clientes
+   de super-admin), estas SÍ llevan la sombra marcada — son objetos que se
+   arrastran, no una lista pasiva, y el efecto "tarjeta levantada" refuerza
+   que son movibles. Mismos tokens que el resto de la plataforma. */
+.mm-orden-list { display: flex; flex-direction: column; gap: 18px; }
+
+.mm-orden-row {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  background: #fff; border: 1px solid transparent; border-radius: var(--card-radius);
+  box-shadow: var(--shadow-card); transform: translateY(-4px);
+  cursor: grab;
+}
+.mm-orden-row.dragging { opacity: .35; }
+.mm-orden-handle { flex: none; color: var(--muted); font-size: 15px; letter-spacing: -2px; user-select: none; }
+.mm-orden-row-body { flex: 1; min-width: 0; }
+.mm-orden-row-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.mm-orden-row-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+.mm-pin-btn {
+  flex: none; font-size: 11.5px; font-weight: 700; padding: 7px 12px;
+  border-radius: 6px; cursor: pointer; font-family: var(--font-body);
+  border: 1px solid var(--border); background: #fff; color: var(--body-text);
+}
+.mm-pin-btn.active { border-color: var(--accent); background: var(--accent-tint); color: var(--accent); }
+.mm-pin-btn:disabled { opacity: .6; cursor: wait; }

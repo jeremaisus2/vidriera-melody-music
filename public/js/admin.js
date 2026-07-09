@@ -108,6 +108,13 @@ async function apiPost(path, body) {
   return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
 }
 
+async function apiPut(path, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (session) headers.Authorization = `Bearer ${session.access_token}`;
+  const res = await fetch(path, { method: 'PUT', headers, body: JSON.stringify(body ?? {}) });
+  return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+}
+
 // ---------------------------------------------------------------------------
 // Toast
 // ---------------------------------------------------------------------------
@@ -178,24 +185,33 @@ async function verifyAdminAndEnter() {
   document.getElementById('userEmailLabel').textContent = email;
   renderQueue(data);
   loadStats();
+  loadOrden();
 }
 
 // ---------------------------------------------------------------------------
 // Navegación (barra lateral) — reemplaza a las tabs horizontales. Preparada
-// para sumar más secciones (Orden de la vidriera, Textos de la página) sin
-// tocar este patrón: agregar un botón más y un case más en setActiveSection.
+// para sumar más secciones (Textos de la página) sin tocar este patrón:
+// agregar un botón más y un case más en setActiveSection.
 // ---------------------------------------------------------------------------
 document.getElementById('navQueueBtn').addEventListener('click', () => setActiveSection('queue'));
 document.getElementById('navStatsBtn').addEventListener('click', () => {
   setActiveSection('stats');
   loadStats(); // re-fetch en cada visita: recién aprobado no debería quedar afuera hasta recargar la página
 });
+document.getElementById('navOrdenBtn').addEventListener('click', () => {
+  setActiveSection('orden');
+  // A diferencia de stats, NO se re-fetchea acá: el orden/deshacer-rehacer
+  // vive en memoria durante toda la sesión de navegador (pedido explícito),
+  // así que re-cargar en cada visita a la sección lo destruiría.
+});
 
 function setActiveSection(section) {
   document.getElementById('navQueueBtn').classList.toggle('active', section === 'queue');
   document.getElementById('navStatsBtn').classList.toggle('active', section === 'stats');
+  document.getElementById('navOrdenBtn').classList.toggle('active', section === 'orden');
   document.getElementById('tabQueue').hidden = section !== 'queue';
   document.getElementById('tabStats').hidden = section !== 'stats';
+  document.getElementById('tabOrden').hidden = section !== 'orden';
 }
 
 // ---------------------------------------------------------------------------
@@ -373,6 +389,176 @@ async function loadStats() {
       <div class="mm-stats-track"><div class="mm-stats-fill" style="width:${(i.vistas / maxViews) * 100}%"></div></div>
     </div>`).join('');
 }
+
+// ---------------------------------------------------------------------------
+// Orden de la vidriera + anulación puntual del destacado (Etapa C)
+//
+// El deshacer/rehacer es solo de esta sesión de navegador (pedido explícito:
+// no hace falta que sobreviva a un F5) — currentOrder/undoStack/redoStack
+// viven en memoria, se inicializan una sola vez en loadOrden() y no se
+// vuelven a pisar hasta que se recargue la página.
+// ---------------------------------------------------------------------------
+let currentOrder = [];       // ids en el orden actual
+let pinnedId = null;         // id fijado como destacado, o null
+let publicacionesById = new Map();
+let undoStack = [];          // snapshots de currentOrder anteriores
+let redoStack = [];
+let ordenGuardando = false;
+
+async function loadOrden() {
+  const { ok, data } = await apiGet('/api/admin/publicaciones?estado=approved');
+  if (!ok) {
+    document.getElementById('ordenList').innerHTML = '<p class="mm-empty">No pudimos cargar las publicaciones.</p>';
+    return;
+  }
+  publicacionesById = new Map(data.publicaciones.map((p) => [p.id, p]));
+  currentOrder = data.publicaciones.map((p) => p.id);
+  pinnedId = data.destacado_override_id ?? null;
+  undoStack = [];
+  redoStack = [];
+  renderOrdenList();
+}
+
+function renderOrdenList() {
+  const wrap = document.getElementById('ordenList');
+
+  if (currentOrder.length === 0) {
+    wrap.innerHTML = '<p class="mm-empty">Todavía no hay publicaciones aprobadas para ordenar.</p>';
+    renderOverrideBanner();
+    updateUndoRedoButtons();
+    return;
+  }
+
+  wrap.innerHTML = currentOrder.map((id) => {
+    const p = publicacionesById.get(id);
+    if (!p) return '';
+    const pinned = id === pinnedId;
+    return `
+      <div class="mm-orden-row" draggable="true" data-id="${p.id}">
+        <span class="mm-orden-handle" aria-hidden="true">⠿⠿</span>
+        <div class="mm-thumb" ${p.imagen_url ? `style="background-image:url('${escapeHtml(p.imagen_url)}')"` : ''}></div>
+        <div class="mm-orden-row-body">
+          <div class="mm-orden-row-name">${escapeHtml(p.nombre)}</div>
+          <div class="mm-orden-row-meta">${escapeHtml(categoriaNombre(p.categoria))} · ${escapeHtml(p.familia)}</div>
+        </div>
+        <button type="button" class="mm-pin-btn ${pinned ? 'active' : ''}" data-id="${p.id}">
+          ${pinned ? '★ Destacado fijo' : '☆ Fijar como destacado'}
+        </button>
+      </div>`;
+  }).join('');
+
+  attachDragHandlers();
+  wrap.querySelectorAll('.mm-pin-btn').forEach((btn) => {
+    btn.addEventListener('click', () => togglePin(btn.dataset.id));
+  });
+
+  renderOverrideBanner();
+  updateUndoRedoButtons();
+}
+
+function renderOverrideBanner() {
+  const banner = document.getElementById('destacadoOverrideBanner');
+  if (!pinnedId) {
+    banner.hidden = true;
+    return;
+  }
+  const p = publicacionesById.get(pinnedId);
+  banner.hidden = false;
+  document.getElementById('destacadoOverrideName').textContent = p?.nombre ?? '(publicación eliminada)';
+}
+
+function updateUndoRedoButtons() {
+  document.getElementById('undoBtn').disabled = undoStack.length === 0 || ordenGuardando;
+  document.getElementById('redoBtn').disabled = redoStack.length === 0 || ordenGuardando;
+}
+
+// --- Drag & drop (HTML5 nativo, sin librería) ---
+function attachDragHandlers() {
+  const wrap = document.getElementById('ordenList');
+  wrap.querySelectorAll('.mm-orden-row').forEach((row) => {
+    row.addEventListener('dragstart', () => {
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+    });
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const dragging = wrap.querySelector('.dragging');
+      if (!dragging || dragging === row) return;
+      const rect = row.getBoundingClientRect();
+      const antes = (e.clientY - rect.top) < rect.height / 2;
+      wrap.insertBefore(dragging, antes ? row : row.nextSibling);
+    });
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const nuevoOrden = Array.from(wrap.querySelectorAll('.mm-orden-row')).map((r) => r.dataset.id);
+      const cambio = nuevoOrden.length !== currentOrder.length || nuevoOrden.some((id, i) => id !== currentOrder[i]);
+      if (cambio) applyNewOrder(nuevoOrden);
+    });
+  });
+}
+
+function applyNewOrder(nuevoOrden, { registrarHistoria = true } = {}) {
+  if (registrarHistoria) {
+    undoStack.push(currentOrder.slice());
+    redoStack = [];
+  }
+  currentOrder = nuevoOrden.slice();
+  renderOrdenList();
+  saveOrder(currentOrder);
+}
+
+async function saveOrder(ids) {
+  ordenGuardando = true;
+  updateUndoRedoButtons();
+  const { ok, data } = await apiPut('/api/admin/publicaciones/orden', { orden: ids });
+  ordenGuardando = false;
+  updateUndoRedoButtons();
+  if (!ok) {
+    showToast(data.error ?? 'No se pudo guardar el nuevo orden.');
+  }
+}
+
+document.getElementById('undoBtn').addEventListener('click', () => {
+  if (undoStack.length === 0) return;
+  redoStack.push(currentOrder.slice());
+  const anterior = undoStack.pop();
+  currentOrder = anterior;
+  renderOrdenList();
+  saveOrder(currentOrder);
+});
+
+document.getElementById('redoBtn').addEventListener('click', () => {
+  if (redoStack.length === 0) return;
+  undoStack.push(currentOrder.slice());
+  const siguiente = redoStack.pop();
+  currentOrder = siguiente;
+  renderOrdenList();
+  saveOrder(currentOrder);
+});
+
+// --- Destacado fijo (anulación puntual de la rotación automática) ---
+async function togglePin(id) {
+  const nuevoPinnedId = pinnedId === id ? null : id;
+  const { ok, data } = await apiPut('/api/admin/destacado-override', { publicacion_id: nuevoPinnedId });
+  if (!ok) {
+    showToast(data.error ?? 'No se pudo actualizar el destacado.');
+    return;
+  }
+  pinnedId = nuevoPinnedId;
+  renderOrdenList();
+}
+
+document.getElementById('clearOverrideBtn').addEventListener('click', async () => {
+  const { ok, data } = await apiPut('/api/admin/destacado-override', { publicacion_id: null });
+  if (!ok) {
+    showToast(data.error ?? 'No se pudo quitar la anulación.');
+    return;
+  }
+  pinnedId = null;
+  renderOrdenList();
+});
 
 // ---------------------------------------------------------------------------
 // Bootstrap

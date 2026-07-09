@@ -322,6 +322,81 @@ export async function getDestacadoRotativo() {
 }
 
 // ---------------------------------------------------------------------------
+// Anulación puntual del destacado (Etapa C, panel admin)
+//
+// El admin puede fijar a mano qué publicación se muestra en el banner
+// destacado, anulando la rotación automática de arriba mientras esté
+// activa. Se guarda en vidriera_academias.destacado_override_id.
+//
+// vidriera_academias NO es de lectura pública por RLS (academias_select
+// exige rol admin/super_admin) — se usa supabaseAdmin acá a propósito,
+// mismo criterio que statsEvento(): el DATO resultante (qué publicación
+// está destacada) es público, aunque la tabla fuente no lo sea.
+//
+// No hay scoping por academia en esta consulta pública (mismo límite ya
+// documentado para publicaciones/eventos: la instalación de hoy sirve una
+// sola academia activa) — devuelve el primer override activo que encuentre.
+// ---------------------------------------------------------------------------
+export async function getDestacadoOverrideActivo() {
+  const { data: academia, error } = await supabaseAdmin
+    .from('vidriera_academias')
+    .select('id, destacado_override_id')
+    .not('destacado_override_id', 'is', null)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!academia) return null;
+
+  const { data: publicacion, error: errorPub } = await supabaseAdmin
+    .from('vidriera_publicaciones')
+    .select('*')
+    .eq('id', academia.destacado_override_id)
+    .eq('estado', 'approved')
+    .maybeSingle();
+  if (errorPub) throw errorPub;
+  // El override puede apuntar a algo que ya no está aprobado (rechazado o
+  // borrado después de fijarlo) — en ese caso se degrada a la rotación
+  // automática en vez de romper o mostrar un dato inconsistente.
+  return publicacion ?? null;
+}
+
+export async function getAcademiaDestacadoOverrideId(academia_id) {
+  const { data, error } = await supabaseAdmin
+    .from('vidriera_academias')
+    .select('destacado_override_id')
+    .eq('id', academia_id)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.destacado_override_id ?? null;
+}
+
+/**
+ * Fija o quita la anulación puntual del destacado para una academia.
+ * publicacion_id === null quita la anulación (vuelve a la rotación automática).
+ */
+export async function setDestacadoOverride(academia_id, publicacion_id) {
+  if (publicacion_id) {
+    const { data: pub, error: errorPub } = await supabaseAdmin
+      .from('vidriera_publicaciones')
+      .select('id')
+      .eq('id', publicacion_id)
+      .eq('academia_id', academia_id)
+      .eq('estado', 'approved')
+      .maybeSingle();
+    if (errorPub) throw errorPub;
+    if (!pub) return { error: 'La publicación no existe, no es de esta academia, o no está aprobada.' };
+  }
+
+  const { error } = await supabaseAdmin
+    .from('vidriera_academias')
+    .update({ destacado_override_id: publicacion_id })
+    .eq('id', academia_id);
+  if (error) throw error;
+
+  return { destacado_override_id: publicacion_id };
+}
+
+// ---------------------------------------------------------------------------
 // Super-admin / admin — listado de eventos por academia
 // ---------------------------------------------------------------------------
 export async function getEventosAdmin(academia_id) {
