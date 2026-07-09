@@ -1,19 +1,33 @@
+import { env } from '../config/env.js';
+import { MOCK_USERS } from '../data/mockUsers.js';
 import { supabaseAdmin, supabaseForToken } from '../config/supabase.js';
 
 /**
- * Middleware de autenticación por JWT de Supabase.
+ * Middleware de autenticación. Bifurca según MOCK_AUTH:
  *
- * Lee el header `Authorization: Bearer <token>`, valida el token contra Supabase
- * Auth y adjunta a la request:
- *   - req.user     -> usuario de Supabase Auth
- *   - req.token    -> access token (para hacer llamadas con RLS del usuario)
- *   - req.supabase -> cliente Supabase que actúa en nombre del usuario
- *   - req.perfil   -> fila de vidriera_perfiles (rol + academia)
- *
- * El rol vive en la tabla vidriera_perfiles, no en el token, para poder gestionarlo
- * desde el panel de admin/super-admin sin re-emitir tokens.
+ *   MOCK_AUTH=true  → Lee X-Mock-Rol (cliente|admin|super_admin). Sin Supabase.
+ *   MOCK_AUTH=false → Valida JWT de Supabase y carga perfil de vidriera_perfiles.
  */
 export async function requireAuth(req, res, next) {
+  return env.mockAuth ? mockAuth(req, res, next) : supabaseAuth(req, res, next);
+}
+
+function mockAuth(req, res, next) {
+  const rol = (req.headers['x-mock-rol'] ?? 'cliente').toLowerCase();
+  const identity = MOCK_USERS[rol];
+  if (!identity) {
+    return res.status(400).json({
+      error: `Rol de mock no reconocido: "${rol}". Opciones: cliente, admin, super_admin`,
+    });
+  }
+  req.user     = identity.user;
+  req.perfil   = identity.perfil;
+  req.token    = null;
+  req.supabase = null;
+  return next();
+}
+
+async function supabaseAuth(req, res, next) {
   try {
     const header = req.headers.authorization ?? '';
     const [scheme, token] = header.split(' ');
@@ -33,10 +47,10 @@ export async function requireAuth(req, res, next) {
       .eq('user_id', data.user.id)
       .maybeSingle();
 
-    req.user = data.user;
-    req.token = token;
+    req.user     = data.user;
+    req.token    = token;
     req.supabase = supabaseForToken(token);
-    req.perfil = perfil ?? null;
+    req.perfil   = perfil ?? null;
 
     return next();
   } catch (err) {
