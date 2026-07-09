@@ -53,12 +53,20 @@ Todas con prefijo `vidriera_`:
 - `vidriera_academia_modulos` — activación relacional módulo↔academia.
 - `vidriera_perfiles` — mapea `auth.users` → rol + academia.
 - `vidriera_categorias` — categorías de la vidriera (fijas, en tabla por extensibilidad).
-- `vidriera_publicaciones` — dato público del emprendimiento (+ `vistas`, `estado`).
+- `vidriera_publicaciones` — dato público del emprendimiento (+ `vistas`, `estado`,
+  `familia`: nombre de la familia dueña, requerido, se muestra en la tarjeta).
 - `vidriera_publicaciones_ediciones` — ediciones propuestas en revisión (jsonb `cambios`).
-- `vidriera_eventos` — calendario.
+- `vidriera_eventos` — calendario (+ `lugar`: opcional, texto libre).
 - `vidriera_evento_sponsors` — sponsors por evento (base del destacado rotativo).
 - `vidriera_rsvp`, `vidriera_reacciones` — asistencia y reacciones.
-- `vidriera_galeria`, `vidriera_testimonios` — fotos y testimonios por evento.
+- `vidriera_galeria`, `vidriera_testimonios` — fotos y testimonios por evento
+  (`vidriera_testimonios.familia`: nombre de familia a mostrar junto a la cita, requerido).
+
+> **`familia` como columna, no join a `vidriera_perfiles`**: aunque `vidriera_perfiles.nombre`
+> ya existe, esa tabla no es de lectura pública (RLS solo permite ver el propio perfil o
+> `super_admin`) — exponerla públicamente para mostrar nombres de familia sería un cambio de
+> privacidad mayor. `familia` se guarda como texto libre en cada publicación/testimonio,
+> capturado al momento de creación (mismo patrón que `nombre`).
 
 > **Doble representación de módulos** (`modulos_activos` jsonb + tabla `academia_modulos`):
 > la tabla es la fuente de verdad; el jsonb es cache/lectura rápida. La spec pide el campo
@@ -95,6 +103,11 @@ db/
   schema.sql             DDL con prefijo vidriera_
   seed.sql               catálogo de módulos, categorías, academia de ejemplo
   policies.sql           RLS completo para las 13 tablas
+  migrations/            ALTERs incrementales sobre schema.sql ya aplicado (no
+                          hay CLI/psql en este entorno para correrlas: se corren
+                          a mano en el SQL Editor de Supabase y quedan documentadas acá)
+public/
+  index.html, css/, js/  frontend estático (vidriera de padres), sin build step
 ```
 
 Los controladores viven en `src/controllers/` y usan `src/repos/` para hablar con

@@ -123,16 +123,29 @@ export async function dejarTestimonio(req, res, next) {
     const evento = await eventosRepo.getEventoById(req.params.id);
     if (!evento) return res.status(404).json({ error: 'Evento no encontrado' });
 
-    const { texto } = req.body;
+    const { texto, familia } = req.body;
     if (!texto?.trim()) {
       return res.status(400).json({ error: 'El campo texto es requerido' });
     }
     if (texto.trim().length > 500) {
       return res.status(400).json({ error: 'El testimonio no puede superar los 500 caracteres' });
     }
+    if (!familia?.trim()) {
+      return res.status(400).json({ error: 'El campo familia es requerido' });
+    }
 
-    const testimonio = await eventosRepo.crearTestimonio(req.supabase, req.params.id, req.user.id, texto.trim());
+    const testimonio = await eventosRepo.crearTestimonio(req.supabase, req.params.id, req.user.id, texto.trim(), familia.trim());
     return res.status(201).json(testimonio);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// --- Familias autenticadas: mis reacciones (para pintar el estado activo/inactivo) ---
+
+export async function misReacciones(req, res, next) {
+  try {
+    return res.json(await eventosRepo.getReaccionesByUser(req.supabase, req.user.id));
   } catch (err) {
     return next(err);
   }

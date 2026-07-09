@@ -131,12 +131,28 @@ export async function toggleReaccion(supabase, evento_id, user_id, tipo) {
   return { activa: true, tipo };
 }
 
-export async function crearTestimonio(supabase, evento_id, user_id, texto) {
+export async function crearTestimonio(supabase, evento_id, user_id, texto, familia) {
   const { data, error } = await supabase
     .from('vidriera_testimonios')
-    .insert({ evento_id, user_id, texto })
+    .insert({ evento_id, user_id, texto, familia })
     .select()
     .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Reacciones del usuario autenticado, en todos los eventos (no solo uno).
+ * Usa el cliente por-token del request: la política "reacciones_select" ya
+ * permite `user_id = auth.uid()`, no hace falta ninguna política nueva.
+ * El frontend la usa para saber qué botones de reacción mostrar activos al
+ * cargar la página, sin necesidad de un toggle "a ciegas".
+ */
+export async function getReaccionesByUser(supabase, user_id) {
+  const { data, error } = await supabase
+    .from('vidriera_reacciones')
+    .select('evento_id, tipo')
+    .eq('user_id', user_id);
   if (error) throw error;
   return data;
 }
@@ -147,10 +163,10 @@ export async function crearTestimonio(supabase, evento_id, user_id, texto) {
 // service_role salta RLS: el scope por academia (que en RLS resuelve
 // `vidriera_academia_id()`) se aplica acá a mano con `.eq('academia_id', ...)`.
 // ---------------------------------------------------------------------------
-export async function crearEvento({ academia_id, nombre, tipo, fecha, descripcion }) {
+export async function crearEvento({ academia_id, nombre, tipo, fecha, lugar, descripcion }) {
   const { data, error } = await supabaseAdmin
     .from('vidriera_eventos')
-    .insert({ academia_id, nombre, tipo, fecha, descripcion: descripcion ?? null })
+    .insert({ academia_id, nombre, tipo, fecha, lugar: lugar ?? null, descripcion: descripcion ?? null })
     .select()
     .single();
   if (error) throw error;

@@ -74,13 +74,14 @@ export async function incrementarVistas(id) {
   if (error) throw error;
 }
 
-export async function crearPublicacion(supabase, { academia_id, owner_user_id, nombre, categoria, descripcion, imagen_url, whatsapp }) {
+export async function crearPublicacion(supabase, { academia_id, owner_user_id, nombre, familia, categoria, descripcion, imagen_url, whatsapp }) {
   const { data, error } = await supabase
     .from('vidriera_publicaciones')
     .insert({
       academia_id,
       owner_user_id,
       nombre,
+      familia,
       categoria,
       descripcion: descripcion ?? null,
       imagen_url: imagen_url ?? null,

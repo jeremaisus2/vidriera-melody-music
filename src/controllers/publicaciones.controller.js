@@ -74,10 +74,13 @@ export async function destacadoRotativo(req, res, next) {
 
 export async function crearPublicacion(req, res, next) {
   try {
-    const { nombre, categoria, descripcion, imagen_url, whatsapp } = req.body;
+    const { nombre, familia, categoria, descripcion, imagen_url, whatsapp } = req.body;
 
     if (!nombre?.trim()) {
       return res.status(400).json({ error: 'El campo nombre es requerido' });
+    }
+    if (!familia?.trim()) {
+      return res.status(400).json({ error: 'El campo familia es requerido' });
     }
     if (!CATEGORIAS_VALIDAS.includes(categoria)) {
       return res.status(400).json({ error: `Categoría inválida. Opciones: ${CATEGORIAS_VALIDAS.join(', ')}` });
@@ -87,6 +90,7 @@ export async function crearPublicacion(req, res, next) {
       academia_id: req.perfil.academia_id,
       owner_user_id: req.user.id,
       nombre: nombre.trim(),
+      familia: familia.trim(),
       categoria,
       descripcion,
       imagen_url,
@@ -109,14 +113,18 @@ export async function proponerEdicion(req, res, next) {
       return res.status(403).json({ error: 'No tenés permisos para editar esta publicación' });
     }
 
-    const { nombre, categoria, descripcion, imagen_url, whatsapp } = req.body;
+    const { nombre, familia, categoria, descripcion, imagen_url, whatsapp } = req.body;
 
     if (categoria !== undefined && !CATEGORIAS_VALIDAS.includes(categoria)) {
       return res.status(400).json({ error: `Categoría inválida: "${categoria}"` });
     }
+    if (familia !== undefined && !familia.trim()) {
+      return res.status(400).json({ error: 'El campo familia no puede quedar vacío' });
+    }
 
     const cambios = {};
     if (nombre      !== undefined) cambios.nombre      = nombre.trim();
+    if (familia     !== undefined) cambios.familia     = familia.trim();
     if (categoria   !== undefined) cambios.categoria   = categoria;
     if (descripcion !== undefined) cambios.descripcion = descripcion;
     if (imagen_url  !== undefined) cambios.imagen_url  = imagen_url;

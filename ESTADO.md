@@ -197,6 +197,68 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-09 #7 — Cierre de los 3 gaps de datos de la vidriera
+
+Antes de arrancar el panel de admin (`2c`), se resolvieron los tres gaps
+documentados en la sesión #6: nombre de familia en publicaciones y testimonios,
+lugar en eventos, y saber si el usuario ya reaccionó a un evento. Esta vez sí
+hizo falta tocar el backend (schema, repos, controladores, rutas).
+
+- **`familia` (texto, `not null`)** agregado a `vidriera_publicaciones` y
+  `vidriera_testimonios`. Se evaluó resolverlo con un join a
+  `vidriera_perfiles.nombre` (que ya existe) en vez de duplicar el dato, pero esa
+  tabla no es de lectura pública por RLS (`perfiles_select` solo permite ver el
+  propio perfil o `super_admin`) — exponerla para leer nombres sería un cambio de
+  privacidad más grande que lo pedido. Columna de texto libre, capturada al crear
+  la publicación/testimonio, es más consistente con cómo ya funciona `nombre`.
+- **`lugar` (texto, opcional)** agregado a `vidriera_eventos` — eventos virtuales
+  pueden no tener uno, así que no es `not null` como los otros dos campos.
+- **"Mis reacciones"**: nuevo `GET /api/eventos/mias/reacciones` (requireAuth,
+  ruta estática antes de `/:id` en `eventos.routes.js`, mismo patrón que
+  `/mias/listado` de publicaciones). Devuelve `[{ evento_id, tipo }]` del usuario
+  autenticado. **No hizo falta ninguna política RLS nueva**: `reacciones_select`
+  ya permitía `user_id = auth.uid()` desde que se escribió `policies.sql` en
+  Etapa 2 — el gap real era que nadie había construido el endpoint que la usara.
+- **No pude aplicar el schema yo mismo**: sin `psql`/CLI/`DATABASE_URL` en este
+  entorno (igual que en la verificación de RLS de la sesión #2), el cliente de
+  Supabase por REST no ejecuta DDL. Se creó `db/migrations/001_familia_lugar.sql`
+  (idempotente: `add column if not exists` + backfill + `set not null` para las
+  dos columnas requeridas) y el usuario lo corrió en el SQL Editor. `db/schema.sql`
+  también se actualizó para que una instalación nueva ya nazca con las 3 columnas.
+- **Verificado end-to-end contra Supabase real** después de la migración:
+  - Validación 400 al crear publicación/testimonio sin `familia`.
+  - Flujo real completo por HTTP: crear publicación con `familia` → moderar →
+    aprobar (admin real) → aparece en `/api/publicaciones` con `familia`; crear
+    evento con `lugar` (admin real) → aparece en `/api/eventos` con `lugar`; crear
+    testimonio con `familia` → aparece en `/api/eventos/:id/testimonios`.
+  - Frontend (Playwright, Chromium headless) confirma los tres campos renderizados
+    en pantalla: nombre de familia en la tarjeta de negocio, lugar en el subtítulo
+    del evento, familia en la cita del testimonio.
+  - **Caso clave de "mis reacciones"**: usuario reacciona por API (simulando "otro
+    dispositivo/sesión"), después abre la vidriera sin sesión iniciada (el botón
+    arranca inactivo porque todavía no se sabe su estado real) → click → modal de
+    login → tras loguearse, se refresca `mis-reacciones` contra el servidor antes
+    de decidir si mandar el toggle → como el estado real ya coincidía con lo que
+    pedía el click, **no se mandó ningún `POST /reaccion`** (confirmado por conteo
+    de requests de red, no solo por la UI) y el botón quedó "activo" sin duplicar
+    ni des-reaccionar por accidente. Caso inverso (reacción nueva) confirmado con
+    exactamente 1 `POST /reaccion` y el contador incrementando en 1.
+  - Un bug real encontrado durante esta verificación (no evidente solo leyendo el
+    código): `apiGet()` nunca mandaba el header `Authorization` — solo `apiPost()`
+    lo hacía. Como consecuencia, la primera llamada a
+    `GET /api/eventos/mias/reacciones` fallaba con 401 silenciosamente dentro del
+    callback post-login, y el intento de reproducir el bug en un test con
+    `waitForTimeout` fijo daba resultados inconsistentes entre corridas (a veces
+    "por casualidad" no mandaba el toggle duplicado, pero tampoco actualizaba la
+    UI) — hubo que instrumentar la verificación con `page.waitForResponse` en vez
+    de un timeout a ciegas para confirmar el comportamiento real de forma
+    determinística. Corregido agregando el mismo header condicional que ya tenía
+    `apiPost`.
+  - Datos y usuarios de prueba borrados al final por id exacto; Supabase quedó en
+    el mismo estado en que se encontró (confirmado con conteos de filas).
+
+---
+
 ### Sesión 2026-07-09 #6 — Frontend: vidriera de padres (`2a` desktop / `2b` mobile)
 
 Implementadas las dos primeras pantallas del handoff visual
@@ -223,7 +285,8 @@ y super-admin (`3a`) quedan para una próxima sesión.
   para reaccionar a eventos (`Voy a asistir` / `Nos encantó`) — la lectura de la
   vidriera es 100% pública, sin login.
 - **Gaps de datos reales detectados** (no se tocó el backend para resolverlos,
-  quedan documentados para decidir si vale la pena en una próxima sesión):
+  quedan documentados para decidir si vale la pena en una próxima sesión) —
+  **los tres resueltos en la sesión #7, ver abajo**:
   - `vidriera_publicaciones` no tiene nombre de familia (solo `owner_user_id`, sin
     join a `vidriera_perfiles`) — el footer de la tarjeta de negocio no muestra
     "Familia X" como en el prototipo, se omitió en vez de inventar el dato.

@@ -86,6 +86,7 @@ async function signIn(email, password) {
 
 function signOut() {
   session = null;
+  misReaccionesCache = [];
   localStorage.removeItem(AUTH_STORAGE_KEY);
   updateAvatar();
 }
@@ -150,7 +151,15 @@ loginForm.addEventListener('submit', async (e) => {
   const afterLogin = pendingAfterLogin;
   updateAvatar();
   closeLoginModal();
-  if (afterLogin) afterLogin();
+  if (afterLogin) {
+    afterLogin();
+  } else {
+    // Login disparado desde el avatar, no desde un click de reacción: igual
+    // hay que refrescar el estado real de "mis reacciones" y re-pintar los
+    // botones (si no, quedarían todos en "inactivo" hasta recargar la página).
+    await loadMisReacciones();
+    await Promise.all([loadEventosProximos(), loadMomentos()]);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -169,7 +178,9 @@ function showToast(msg) {
 // API helpers
 // ---------------------------------------------------------------------------
 async function apiGet(path) {
-  const res = await fetch(path);
+  const headers = {};
+  if (session) headers.Authorization = `Bearer ${session.access_token}`;
+  const res = await fetch(path, { headers });
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
   return res.json();
 }
@@ -200,6 +211,7 @@ function businessCardHtml(pub) {
         <div class="mm-biz-name">${escapeHtml(pub.nombre)}</div>
         <div class="mm-biz-desc">${escapeHtml(pub.descripcion ?? '')}</div>
         <div class="mm-biz-footer">
+          <span class="mm-biz-family">${escapeHtml(pub.familia ?? '')}</span>
           ${pub.whatsapp
             ? `<a class="mm-whatsapp-btn" href="https://wa.me/${escapeHtml(pub.whatsapp)}" target="_blank" rel="noopener" data-pub-id="${pub.id}">WhatsApp</a>`
             : ''}
@@ -299,12 +311,48 @@ async function loadDestacado() {
 
 // ---------------------------------------------------------------------------
 // Reacciones (requieren sesión)
+//
+// misReaccionesCache guarda la verdad del servidor (GET /api/eventos/mias/reacciones)
+// para saber, ANTES de mandar un toggle, si el usuario ya había reaccionado en otra
+// sesión/dispositivo. Sin esto, un click en un botón que se veía "inactivo" solo
+// porque todavía no sabíamos su estado real (ej. recién logueado) podía terminar
+// des-reaccionando por accidente en vez de reaccionar.
 // ---------------------------------------------------------------------------
-async function toggleReaccion(eventoId, tipo, btn, onResult) {
+let misReaccionesCache = [];
+
+async function loadMisReacciones() {
   if (!session) {
-    openLoginModal(() => toggleReaccion(eventoId, tipo, btn, onResult));
+    misReaccionesCache = [];
     return;
   }
+  misReaccionesCache = await apiGet('/api/eventos/mias/reacciones');
+}
+
+function isReactionActive(eventoId, tipo) {
+  return misReaccionesCache.some((r) => r.evento_id === eventoId && r.tipo === tipo);
+}
+
+async function toggleReaccion(eventoId, tipo, btn, onResult) {
+  const desiredActive = !isReactionActive(eventoId, tipo);
+
+  if (!session) {
+    openLoginModal(async () => {
+      await loadMisReacciones();
+      if (isReactionActive(eventoId, tipo) === desiredActive) {
+        // El servidor ya tenía el estado que el click pedía (reaccionó desde otro
+        // dispositivo/sesión) — solo sincronizamos la UI, sin mandar otro toggle.
+        onResult(desiredActive, false);
+        return;
+      }
+      await performToggle(eventoId, tipo, btn, onResult);
+    });
+    return;
+  }
+
+  await performToggle(eventoId, tipo, btn, onResult);
+}
+
+async function performToggle(eventoId, tipo, btn, onResult) {
   btn.disabled = true;
   const { ok, status, data } = await apiPost(`/api/eventos/${eventoId}/reaccion`, { tipo });
   btn.disabled = false;
@@ -317,16 +365,19 @@ async function toggleReaccion(eventoId, tipo, btn, onResult) {
     showToast(data.error ?? 'No se pudo registrar la reacción.');
     return;
   }
-  onResult(data.activa);
+  if (data.activa) {
+    misReaccionesCache.push({ evento_id: eventoId, tipo });
+  } else {
+    misReaccionesCache = misReaccionesCache.filter((r) => !(r.evento_id === eventoId && r.tipo === tipo));
+  }
+  onResult(data.activa, true);
 }
 
 // ---------------------------------------------------------------------------
 // Calendario de eventos (próximos)
 // ---------------------------------------------------------------------------
-const localReactionState = { voy_a_asistir: {}, nos_encanto: {} };
-
 function eventCardHtml(ev) {
-  const activo = !!localReactionState.voy_a_asistir[ev.id];
+  const activo = isReactionActive(ev.id, 'voy_a_asistir');
   const count = ev.stats.reacciones.voy_a_asistir;
   return `
     <div class="mm-event-card">
@@ -335,7 +386,7 @@ function eventCardHtml(ev) {
         <span class="mm-event-month">${MESES_ABREV[new Date(ev.fecha).getMonth()]}</span>
       </div>
       <div class="mm-event-title">${escapeHtml(ev.nombre)}</div>
-      <div class="mm-event-subtitle">${formatHora(ev.fecha)}${ev.descripcion ? ' · ' + escapeHtml(ev.descripcion) : ''}</div>
+      <div class="mm-event-subtitle">${formatHora(ev.fecha)}${ev.lugar ? ' · ' + escapeHtml(ev.lugar) : ''}</div>
       <button type="button" class="mm-reaction-btn ${activo ? 'active' : ''}" data-evento-id="${ev.id}">
         Voy a asistir · ${count}
       </button>
@@ -356,10 +407,9 @@ async function loadEventosProximos() {
   row.querySelectorAll('.mm-reaction-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.eventoId;
-      toggleReaccion(id, 'voy_a_asistir', btn, (activa) => {
-        localReactionState.voy_a_asistir[id] = activa;
+      toggleReaccion(id, 'voy_a_asistir', btn, (activa, serverChanged) => {
         const ev = eventos.find((e) => e.id === id);
-        ev.stats.reacciones.voy_a_asistir += activa ? 1 : -1;
+        if (serverChanged) ev.stats.reacciones.voy_a_asistir += activa ? 1 : -1;
         btn.classList.toggle('active', activa);
         btn.textContent = `Voy a asistir · ${ev.stats.reacciones.voy_a_asistir}`;
       });
@@ -371,7 +421,7 @@ async function loadEventosProximos() {
 // Momentos que ya vivimos (eventos pasados) + galería + testimonios
 // ---------------------------------------------------------------------------
 function pastEventCardHtml(ev) {
-  const activo = !!localReactionState.nos_encanto[ev.id];
+  const activo = isReactionActive(ev.id, 'nos_encanto');
   const count = ev.stats.reacciones.nos_encanto;
   return `
     <div class="mm-past-event-card">
@@ -400,10 +450,9 @@ async function loadMomentos() {
     pastRow.querySelectorAll('.mm-reaction-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.eventoId;
-        toggleReaccion(id, 'nos_encanto', btn, (activa) => {
-          localReactionState.nos_encanto[id] = activa;
+        toggleReaccion(id, 'nos_encanto', btn, (activa, serverChanged) => {
           const ev = pasados.find((e) => e.id === id);
-          ev.stats.reacciones.nos_encanto += activa ? 1 : -1;
+          if (serverChanged) ev.stats.reacciones.nos_encanto += activa ? 1 : -1;
           btn.classList.toggle('active', activa);
           btn.textContent = `Nos encantó · ${ev.stats.reacciones.nos_encanto}`;
         });
@@ -435,7 +484,7 @@ async function loadMomentos() {
     : quotes.slice(0, 6).map((t) => `
         <div class="mm-testimonial-card">
           <div class="mm-testimonial-quote">"${escapeHtml(t.texto)}"</div>
-          <div class="mm-testimonial-meta">— ${escapeHtml(t.eventoNombre)}</div>
+          <div class="mm-testimonial-meta">— ${escapeHtml(t.familia)} · ${escapeHtml(t.eventoNombre)}</div>
         </div>`).join('');
 }
 
@@ -444,6 +493,7 @@ async function loadMomentos() {
 // ---------------------------------------------------------------------------
 async function main() {
   updateAvatar();
+  await loadMisReacciones();
   await Promise.all([
     loadPublicaciones(),
     loadDestacado(),

@@ -10,9 +10,13 @@ import {
   confirmarRsvp,
   reaccionar,
   dejarTestimonio,
+  misReacciones,
 } from '../controllers/eventos.controller.js';
 
 export const eventosRouter = Router();
+
+// Ruta estática ANTES de /:id para evitar que Express la capture como parámetro.
+eventosRouter.get('/mias/reacciones', requireAuth, misReacciones);
 
 // --- Calendario público ---
 eventosRouter.get('/',                listarEventos);

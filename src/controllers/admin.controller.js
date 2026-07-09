@@ -79,7 +79,7 @@ export async function listarEventosAdmin(req, res, next) {
 
 export async function crearEvento(req, res, next) {
   try {
-    const { nombre, tipo, fecha, descripcion } = req.body;
+    const { nombre, tipo, fecha, lugar, descripcion } = req.body;
 
     if (!nombre?.trim()) return res.status(400).json({ error: 'El campo nombre es requerido' });
     if (!TIPOS_VALIDOS.includes(tipo)) {
@@ -94,6 +94,7 @@ export async function crearEvento(req, res, next) {
       nombre: nombre.trim(),
       tipo,
       fecha,
+      lugar,
       descripcion,
     });
     return res.status(201).json(nuevo);
@@ -104,7 +105,7 @@ export async function crearEvento(req, res, next) {
 
 export async function editarEvento(req, res, next) {
   try {
-    const { nombre, tipo, fecha, descripcion } = req.body;
+    const { nombre, tipo, fecha, lugar, descripcion } = req.body;
 
     if (tipo !== undefined && !TIPOS_VALIDOS.includes(tipo)) {
       return res.status(400).json({ error: `Tipo inválido. Opciones: ${TIPOS_VALIDOS.join(', ')}` });
@@ -117,6 +118,7 @@ export async function editarEvento(req, res, next) {
     if (nombre      !== undefined) cambios.nombre      = nombre.trim();
     if (tipo        !== undefined) cambios.tipo        = tipo;
     if (fecha       !== undefined) cambios.fecha       = fecha;
+    if (lugar       !== undefined) cambios.lugar       = lugar;
     if (descripcion !== undefined) cambios.descripcion = descripcion;
 
     if (Object.keys(cambios).length === 0) {

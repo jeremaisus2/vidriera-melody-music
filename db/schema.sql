@@ -72,6 +72,7 @@ create table if not exists vidriera_publicaciones (
   academia_id    uuid not null references vidriera_academias(id) on delete cascade,
   owner_user_id  uuid not null references auth.users(id) on delete cascade,
   nombre         text not null,
+  familia        text not null,   -- nombre de la familia dueña del emprendimiento (ej. "Familia Restrepo")
   categoria      text not null references vidriera_categorias(clave),
   descripcion    text,
   imagen_url     text,
@@ -111,6 +112,7 @@ create table if not exists vidriera_eventos (
   nombre        text not null,
   tipo          text check (tipo in ('concierto', 'muestra', 'examen')),
   fecha         timestamptz not null,
+  lugar         text,            -- lugar/salón del evento (opcional: eventos virtuales pueden omitirlo)
   descripcion   text,
   qr_url        text,                -- QR generado para compartir por WhatsApp
   created_at    timestamptz not null default now()
@@ -159,6 +161,7 @@ create table if not exists vidriera_testimonios (
   id         uuid primary key default gen_random_uuid(),
   evento_id  uuid not null references vidriera_eventos(id) on delete cascade,
   user_id    uuid not null references auth.users(id) on delete cascade,
+  familia    text not null,   -- nombre de familia a mostrar junto a la cita (ej. "Familia Gómez")
   texto      text not null,
   created_at timestamptz not null default now()
 );
