@@ -3,147 +3,144 @@
 > Bitácora de sesión: qué se hizo, qué falta, próximo paso. Se actualiza en cada sesión
 > de Claude Code. La descripción estable del sistema vive en `ARQUITECTURA.md`.
 
-## Resumen
+---
 
-**Etapa 1 completa — módulos Vidriera, Calendario y Super-admin.** Toda la lógica de
-negocio operativa con store en memoria y auth mock. **Supabase preparado pero sin conectar — eso es Etapa 2.**
+## ✅ ETAPA 1 COMPLETA — toda la lógica de negocio con datos simulados
+
+Todos los módulos de la especificación funcional están implementados y probados
+con store en memoria y autenticación mock (`MOCK_AUTH=true`). No se requiere
+ninguna credencial de Supabase para correr el proyecto.
+
+### Cómo arrancar en modo Etapa 1
+
+```bash
+npm install
+# Crear .env con solo las variables mínimas:
+# PORT=3000
+# NODE_ENV=development
+# MOCK_AUTH=true
+# APP_URL=http://localhost:3000
+npm run dev
+# GET /health → { "status": "ok" }
+# Usar header X-Mock-Rol: cliente | admin | super_admin para autenticarse
+```
+
+### Módulos implementados
+
+| Módulo | Rutas base | Estado |
+|--------|-----------|--------|
+| Vidriera pública | `GET /api/publicaciones` | ✅ |
+| Vidriera cliente | `POST/PUT /api/publicaciones` | ✅ |
+| Calendario público | `GET /api/eventos` | ✅ |
+| Familias (RSVP/reacciones/testimonios) | `POST /api/eventos/:id/*` | ✅ |
+| Destacado rotativo | `GET /api/publicaciones/destacado` | ✅ |
+| QR por evento | `GET /api/eventos/:id/qr` | ✅ |
+| Panel admin — moderación | `GET/POST /api/admin/moderacion/*` | ✅ |
+| Panel admin — eventos/galería | `/api/admin/eventos`, `/api/admin/galeria` | ✅ |
+| Panel admin — estadísticas | `GET /api/admin/estadisticas/vistas` | ✅ |
+| Panel super-admin — academias | `/api/super-admin/academias` | ✅ |
+| Panel super-admin — módulos | `/api/super-admin/modulos`, `/academias/:id/modulos` | ✅ |
+| Panel super-admin — resumen | `GET /api/super-admin/academias/:id/resumen` | ✅ |
 
 ---
 
-## Sesión 2026-07-08 #4 — Panel super-admin (Etapa 1: mock)
+## ETAPA 2 — Conexión real a Supabase
 
-### Hecho
-- Store extendido con estado de super-admin:
-  - `CATALOGO_MODULOS`: const con los 4 módulos de la spec (clave, nombre, incluido/adicional, orden).
-  - `academias`: 3 academias seed (Melody Music activa, Academia Ritmo activa, Sonidos del Sur pausada).
-  - `academiaModulos`: activación relacional módulo↔academia.
-- Controlador `src/controllers/superadmin.controller.js`:
-  - CRUD de academias con validación de slug (`[a-z0-9-]+`) y control de duplicados.
-  - `POST /academias/:id/estado` — activar / pausar academia.
-  - `GET /modulos` — catálogo global con etiqueta incluido/adicional pago.
-  - `GET /academias/:id/modulos` — catálogo completo con estado de activación por academia.
-  - `PUT /academias/:id/modulos` — patch `{ clave: boolean }` con validación de tipo,
-    claves inválidas con advertencia (no falla), sincroniza cache `modulos_activos` jsonb.
-  - `GET /academias/:id/resumen` — `cliente_desde`, `antiguedad_dias`, módulos activos
-    detallados y totales de publicaciones/eventos.
-- Rutas de super-admin conectadas a controladores reales.
-- Nota sobre mock auth: en modo `MOCK_AUTH=true` no existe estado "sin autenticar"
-  (el middleware defaultea a `cliente`), por lo que rutas protegidas devuelven 403 en
-  vez de 401. El 401 solo aplica en modo Supabase real (sin token Bearer).
+### Prerequisitos antes de empezar
 
-### Probado (27/28 — el 1 diferente es comportamiento esperado de mock, ver nota)
-- Listar academias con antigüedad calculada ✓
-- Crear academia (validación slug, duplicados) ✓
-- Editar academia ✓
-- Activar / pausar academia ✓
-- Catálogo de módulos (4, orden, incluido/adicional) ✓
-- Módulos por academia con estado de activación correcto ✓
-- Switch activar/desactivar módulos ✓
-- Claves inválidas → advertencia, no error ✓
-- Valor no booleano / body vacío → 400 ✓
-- Resumen con cliente_desde, módulos activos, totales ✓
-- Cache `modulos_activos` sincronizado después de cambios ✓
-- Guard de rol: cliente → 403, super_admin → pasa ✓
+1. **Crear `.env` con credenciales reales**
+   ```
+   PORT=3000
+   NODE_ENV=development
+   MOCK_AUTH=false
+   APP_URL=https://tu-dominio.com
+   SUPABASE_URL=https://TU-PROYECTO.supabase.co
+   SUPABASE_ANON_KEY=...
+   SUPABASE_SERVICE_ROLE_KEY=...
+   SUPABASE_JWT_SECRET=...
+   ```
+   Confirmar si el proyecto Supabase será compartido con otros productos GIZA
+   (acad_, nieve_) o dedicado. Las tablas `vidriera_` no colisionan en ningún caso.
 
----
+2. **Aplicar schema y seed en el SQL editor de Supabase** (en orden):
+   - `db/schema.sql` — crea las 12 tablas con prefijo `vidriera_`
+   - `db/seed.sql` — catálogo de módulos, categorías y academia "Melody Music"
 
-## Sesión 2026-07-08 #3 — Módulo Calendario de eventos (Etapa 1: mock)
+3. **Escribir políticas RLS** → `db/policies.sql` (pendiente de crear)
+   Criterio por tabla:
+   - `vidriera_publicaciones`: SELECT público para `approved`; INSERT/UPDATE solo el `owner_user_id`
+   - `vidriera_publicaciones_ediciones`: el owner puede ver/crear; admin de su academia puede moderar
+   - `vidriera_eventos`, `vidriera_galeria`: SELECT público; escritura solo rol `admin`
+   - `vidriera_rsvp`, `vidriera_reacciones`, `vidriera_testimonios`: el propio usuario
+   - `vidriera_perfiles`: cada usuario lee el suyo; super_admin lee todos
+   - `vidriera_academias`, `vidriera_academia_modulos`, `vidriera_modulos`: solo `super_admin`
 
-### Hecho
-- Store extendido con estado completo de eventos: `eventos`, `eventoSponsors`,
-  `rsvp`, `reacciones`, `galeria`, `testimonios`. Seed: 3 eventos (2 futuros, 1 pasado
-  con fotos de galería).
-- Controlador público (`src/controllers/eventos.controller.js`):
-  listar (filtros `?tipo` y `?soloFuturos`), ver evento (con stats embebidas),
-  sponsors, galería, testimonios, RSVP (upsert), reacciones (toggle por tipo),
-  testimonio de familia.
-- QR por evento (`GET /api/eventos/:id/qr`): genera PNG con `qrcode`, codifica
-  `APP_URL/eventos/:id`. Devuelve `image/png` directamente.
-- Controlador admin actualizado (`src/controllers/admin.controller.js`):
-  CRUD de eventos (crear/editar/eliminar con limpieza en cascada), sponsors por evento
-  (solo publicaciones `approved`), galería (agregar/eliminar foto).
-- **Destacado rotativo** (`GET /api/publicaciones/destacado`): sponsors del evento
-  cuya ventana activa coincide con la fecha actual (7 días antes → 2 días después).
-  Sin evento activo devuelve `{ destacado: null }`.
-- `APP_URL` en `.env.example` y `env.js`.
-- Rutas de eventos y admin actualizadas (todas conectadas a controladores reales).
+### Migración de la capa mock a Supabase real
 
-### Probado (smoke test — 30 casos)
-- Listar eventos con filtros tipo y soloFuturos ✓
-- Ver evento / 404 en inexistente ✓
-- QR generado como image/png ✓
-- Sponsors filtran publicaciones no-approved ✓
-- Galería y testimonios seed ✓
-- RSVP (confirmar / cancelar / upsert) ✓
-- Reacciones toggle (activa → false en segundo call) ✓
-- Testimonio con validación de texto ✓
-- Admin CRUD de eventos con validaciones ✓
-- Sponsors admin rechaza pub pending ✓
-- Agregar/eliminar foto de galería ✓
-- Destacado rotativo sin ventana activa → sin-ventana ✓
-- Eliminar evento limpia datos asociados ✓
+Con `MOCK_AUTH=false`, `requireAuth` ya usa Supabase Auth (el código está escrito).
+Lo que hay que migrar son los **controladores**: reemplazar las llamadas a `store.js`
+por queries a Supabase, tabla por tabla. Orden sugerido:
+
+1. `publicaciones.controller.js` → `vidriera_publicaciones` + `vidriera_publicaciones_ediciones`
+2. `admin.controller.js` (moderación) → mismas tablas, con `supabaseAdmin` (salta RLS)
+3. `eventos.controller.js` → `vidriera_eventos`, `vidriera_rsvp`, `vidriera_reacciones`, `vidriera_galeria`, `vidriera_testimonios`
+4. `admin.controller.js` (eventos/galería) → mismas tablas
+5. `superadmin.controller.js` → `vidriera_academias`, `vidriera_academia_modulos`
+6. `admin.controller.js` (estadísticas) → agregación con `.select('id, nombre, categoria, estado, vistas')`
+
+   Recomendación: introducir una capa `src/repos/` que exporte las mismas
+   firmas que `store.js` pero usando Supabase, para poder hacer el switch sin
+   tocar los controladores.
+
+### Otras tareas de Etapa 2
+
+- Upload de imágenes a **Supabase Storage** con compresión previa (sharp o browser-side).
+  Bucket sugerido: `vidriera-imagenes`. Las rutas de galería y publicaciones reciben
+  hoy `imagen_url` como string; en Etapa 2 se agrega un endpoint de upload que devuelve
+  la URL pública del storage y se guarda esa URL en la tabla.
+- Handoff visual (bundle de Claude Design) → implementar frontend sobre esta API.
+
+### Decisiones pendientes de confirmar
+
+- Supabase compartido vs. dedicado.
+- Estrategia de compresión de imágenes (cliente o servidor).
+- Dominio/subdominio de despliegue (`APP_URL`).
 
 ---
 
-## Sesión 2026-07-08 #2 — Módulo Vidriera (Etapa 1: mock)
+## Sesiones anteriores (Etapa 1)
 
-### Hecho
-- Capa de autenticación simulada (`MOCK_AUTH=true`):
-  - `src/data/mockUsers.js`: tres usuarios fijos (cliente / admin / super_admin).
-  - `src/middleware/auth.js`: bifurca entre mock (header `X-Mock-Rol`) y Supabase real.
-  - `src/config/env.js`: cuando `MOCK_AUTH=true`, las vars de Supabase son opcionales
-    (no falla al arrancar).
-  - `src/config/supabase.js`: no instancia clientes Supabase cuando `mockAuth=true`.
-- Store en memoria (`src/data/store.js`) con lógica de negocio completa:
-  - Seed: dos publicaciones de ejemplo (una approved, una pending).
-  - Flujo de edición: si la pub está `approved`, genera una `edicion` pendiente que
-    **no pisa el dato público**; si está `pending/rejected`, actualiza en-place.
-  - Moderación: aprobar/rechazar publicaciones y ediciones (al aprobar edición aplica
-    los cambios al dato público).
-- Controladores reales:
-  - `src/controllers/publicaciones.controller.js`: listar, ver, vista, crear, editar,
-    mis publicaciones (todos los casos de negocio).
-  - `src/controllers/admin.controller.js`: cola de moderación, aprobar/rechazar
-    publicaciones y ediciones.
-- Rutas actualizadas con controladores reales (rutas estáticas antes de `/:id`).
-- `.env.example` documenta `MOCK_AUTH`.
+### Sesión 2026-07-08 #5 — Estadísticas de vistas (cierre Etapa 1)
 
-### Probado (smoke test)
-- GET público filtra solo `approved` ✓
-- `pending` devuelve 404 en ruta pública ✓
-- Crear publicación (cliente) → queda `pending` ✓
-- `/mias/listado` devuelve todas las del usuario ✓
-- Cola de moderación filtra pendientes ✓
-- Aprobar publicación: cambia estado a `approved` ✓
-- Editar publicación `approved` → crea edición, **el dato público no cambia** ✓
-- Aprobar edición → aplica cambios al dato público ✓
-- Panel admin con rol `cliente` → 403 ✓
+- `getEstadisticasVistas(academia_id, { categoria, estado })` en store.
+- `GET /api/admin/estadisticas/vistas` con filtros opcionales `?categoria` y `?estado`.
+- Responde `{ total_vistas, por_publicacion (desc vistas), por_categoria (desc vistas) }`.
+- Las vistas se incrementan en tiempo real (el mismo contador de `POST /:id/vista`).
+- 12/12 casos de smoke test pasaron.
 
----
+### Sesión 2026-07-08 #4 — Panel super-admin
 
-## Sesión 2026-07-08 #1 — Bootstrap del proyecto
+- CRUD de academias (slug validado, duplicados, activar/pausar).
+- Catálogo de módulos + switch de activación por academia (`PUT { clave: boolean }`).
+- Cache `modulos_activos` jsonb sincronizado en cada cambio.
+- Resumen por cliente: `cliente_desde`, `antiguedad_dias`, módulos activos detalle, totales.
 
-### Hecho
-- Scaffolding Node.js (ESM) + Express: `package.json`, `app.js`, `server.js`.
-- Config: `src/config/env.js` y `src/config/supabase.js`.
-- Middleware: `requireAuth`, `requireRole`, `errorHandler`.
-- Rutas por módulo (stubs `501`).
-- Esquema SQL con prefijo `vidriera_` (`db/schema.sql`) + semilla (`db/seed.sql`).
-- Docs de seguimiento: `ARQUITECTURA.md`, `ESTADO.md`, `README.md`, `.env.example`.
+### Sesión 2026-07-08 #3 — Módulo Calendario de eventos
 
----
+- Eventos con filtros, stats embebidas, sponsors, galería, testimonios.
+- QR PNG on-demand via `qrcode` (`GET /api/eventos/:id/qr`).
+- RSVP upsert, reacciones toggle, testimonios con validación.
+- Admin: CRUD de eventos, sponsors (solo approved), galería.
+- Destacado rotativo: ventana 7d antes → 2d después del evento.
 
-## Falta (próximos pasos, en orden sugerido)
+### Sesión 2026-07-08 #2 — Módulo Vidriera
 
-1. **Estadísticas de vistas** por emprendimiento (panel admin).
-2. **Conectar Supabase real** (Etapa 2):
-   - Crear `.env` con credenciales reales.
-   - Aplicar `db/schema.sql` + `db/seed.sql` en el SQL editor.
-   - Escribir políticas **RLS** por rol (`db/policies.sql`).
-   - Cambiar `MOCK_AUTH=false`; el resto del código no cambia.
-4. Upload de imágenes a Supabase Storage (con compresión previa).
-5. Handoff visual (bundle de Claude Design) → integrar estilos/componentes.
+- Auth mock (header `X-Mock-Rol`), Supabase no requerido (`MOCK_AUTH=true`).
+- Flujo completo: crear (pending) → moderar → editar aprobada → edición no pisa dato público → aprobar edición.
+- Cola de moderación admin (publicaciones + ediciones separadas).
 
-## Notas / pendientes de confirmar
-- Estrategia de compresión de imágenes antes de subir a Storage.
-- Confirmar si el proyecto Supabase será compartido con otros productos GIZA o dedicado.
+### Sesión 2026-07-08 #1 — Bootstrap
+
+- Node.js ESM + Express, config/env, supabase.js, middlewares, rutas stub.
+- `db/schema.sql` (12 tablas, prefijo `vidriera_`) + `db/seed.sql`.
+- `ARQUITECTURA.md`, `ESTADO.md`, `README.md`, `.env.example`.

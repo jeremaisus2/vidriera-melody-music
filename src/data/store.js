@@ -636,6 +636,37 @@ export function getResumenAcademia(academia_id) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Estadísticas de vistas (panel admin)
+// ---------------------------------------------------------------------------
+export function getEstadisticasVistas(academia_id, { categoria, estado } = {}) {
+  const filtradas = publicaciones.filter((p) => {
+    if (p.academia_id !== academia_id) return false;
+    if (categoria && p.categoria !== categoria) return false;
+    if (estado    && p.estado    !== estado)    return false;
+    return true;
+  });
+
+  const porPublicacion = filtradas
+    .slice()
+    .sort((a, b) => b.vistas - a.vistas)
+    .map(({ id, nombre, categoria, estado, owner_user_id, vistas }) => ({
+      id, nombre, categoria, estado, owner_user_id, vistas,
+    }));
+
+  const totalVistas = filtradas.reduce((s, p) => s + p.vistas, 0);
+
+  const categoriaMap = {};
+  for (const p of filtradas) {
+    categoriaMap[p.categoria] = (categoriaMap[p.categoria] ?? 0) + p.vistas;
+  }
+  const porCategoria = Object.entries(categoriaMap)
+    .map(([cat, vistas]) => ({ categoria: cat, vistas }))
+    .sort((a, b) => b.vistas - a.vistas);
+
+  return { total_vistas: totalVistas, por_publicacion: porPublicacion, por_categoria: porCategoria };
+}
+
 export function getEventosAdmin(academia_id) {
   return eventos
     .filter((e) => e.academia_id === academia_id)

@@ -149,7 +149,20 @@ export function eliminarFoto(req, res) {
 }
 
 // ---------------------------------------------------------------------------
-// Estadísticas (Etapa 2)
+// Estadísticas de vistas
 // ---------------------------------------------------------------------------
-export const estadisticasVistas = (req, res) =>
-  res.status(501).json({ error: 'No implementado todavía: estadísticas de vistas' });
+const CATEGORIAS_VALIDAS = ['fotografia_video', 'vestuario_arreglos', 'instrumentos', 'servicios_eventos', 'general'];
+const ESTADOS_VALIDOS    = ['pending', 'approved', 'rejected'];
+
+export function estadisticasVistas(req, res) {
+  const { categoria, estado } = req.query;
+
+  if (categoria && !CATEGORIAS_VALIDAS.includes(categoria)) {
+    return res.status(400).json({ error: `Categoría no válida: "${categoria}". Opciones: ${CATEGORIAS_VALIDAS.join(', ')}` });
+  }
+  if (estado && !ESTADOS_VALIDOS.includes(estado)) {
+    return res.status(400).json({ error: `Estado no válido: "${estado}". Opciones: ${ESTADOS_VALIDOS.join(', ')}` });
+  }
+
+  return res.json(store.getEstadisticasVistas(req.perfil.academia_id, { categoria, estado }));
+}
