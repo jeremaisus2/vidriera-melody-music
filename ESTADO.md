@@ -172,7 +172,9 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ### Lo que falta para cerrar Etapa 2
 
-1. **Handoff visual** → implementar frontend sobre esta API.
+1. **Handoff visual** → vidriera (2a/2b) ✅ implementada (ver sesión #6 abajo).
+   Falta el panel de admin de academia (`2c`) y el panel de super-admin (`3a`),
+   ambos solo versión desktop según el README del handoff.
 2. (Menor, no bloqueante) Decidir si las rutas públicas de vidriera/calendario deben
    filtrar por academia cuando convivan varias academias en la misma instalación —
    hoy devuelven datos de todas.
@@ -192,6 +194,69 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
   (`.env` → `APP_URL`, ver `src/config/env.js`).
 - Scoping por academia en rutas públicas (vidriera/calendario) para cuando conviva
   más de una academia en la misma instalación — hoy devuelven datos de todas.
+
+---
+
+### Sesión 2026-07-09 #6 — Frontend: vidriera de padres (`2a` desktop / `2b` mobile)
+
+Implementadas las dos primeras pantallas del handoff visual
+(`design-bundle/design_handoff_portal_padres/README.md`), consumiendo la API real
+(sin datos hardcodeados). Alcance de esta sesión: **solo la vidriera** — admin (`2c`)
+y super-admin (`3a`) quedan para una próxima sesión.
+
+- **Stack**: HTML/CSS/JS plano servido como estático desde `public/` (sin build
+  step, sin dependencias nuevas en `package.json`). Un único documento responsive
+  (`public/index.html` + `public/css/styles.css` + `public/js/vidriera.js`) cubre
+  desktop y mobile con media queries — el orden de secciones en el DOM es el mismo
+  en ambos breakpoints (confirmado releyendo el prototipo: la nota del README sobre
+  "la vidriera debe ser lo primero" se refiere a que el destacado/sponsors mobile
+  son compactos, no a reordenar secciones).
+- `src/app.js`: agregado `express.static('public')`, un endpoint `GET /config.js`
+  (expone `SUPABASE_URL`/`SUPABASE_ANON_KEY` al navegador — son seguras de exponer,
+  RLS las protege) y la CSP de `helmet` ajustada (Google Fonts + `connect-src`
+  a Supabase). Es el único cambio en `src/`; controladores/repos/rutas de la API
+  quedaron intactos.
+- **Login de familias sin SDK**: en vez de sumar `@supabase/supabase-js` por CDN
+  (complica CSP y agrega una dependencia de terceros en runtime para algo chico),
+  el login habla directo con `POST {SUPABASE_URL}/auth/v1/token?grant_type=password`
+  por `fetch` y guarda el `access_token` en `localStorage`. Sesión requerida solo
+  para reaccionar a eventos (`Voy a asistir` / `Nos encantó`) — la lectura de la
+  vidriera es 100% pública, sin login.
+- **Gaps de datos reales detectados** (no se tocó el backend para resolverlos,
+  quedan documentados para decidir si vale la pena en una próxima sesión):
+  - `vidriera_publicaciones` no tiene nombre de familia (solo `owner_user_id`, sin
+    join a `vidriera_perfiles`) — el footer de la tarjeta de negocio no muestra
+    "Familia X" como en el prototipo, se omitió en vez de inventar el dato.
+  - `vidriera_testimonios` tampoco tiene nombre de familia por el mismo motivo — el
+    testimonio se muestra con el nombre del evento pero sin atribución de familia.
+  - `vidriera_eventos` no tiene campo "lugar" — el subtítulo de la tarjeta de evento
+    combina hora + `descripcion` en su lugar (`18:00 hs · {descripcion}`).
+  - No hay endpoint "mis reacciones" — el frontend no puede saber si el usuario
+    logueado ya reaccionó antes de esta sesión de navegador; el botón arranca
+    siempre en estado inactivo aunque el usuario haya reaccionado en una sesión
+    previa (el conteo agregado sí es siempre el real, vía `stats.reacciones`).
+- **Verificado end-to-end contra Supabase real** (servidor HTTP real, no mocks):
+  - Sembrados datos de prueba temporales (5 publicaciones, 2 eventos, sponsors,
+    galería, 2 testimonios) y un usuario `cliente` temporal, vía scripts ad-hoc con
+    `supabaseAdmin` — no vía la UI, para no depender del flujo de alta de
+    publicaciones (fuera de alcance de esta sesión).
+  - Capturas con Playwright (Chromium headless, instalado ad-hoc en el entorno) en
+    1400px y 402px de ancho: layout fiel al handoff, sin errores de consola.
+  - Interacción real en navegador: filtro de categoría, click en WhatsApp (dispara
+    `POST /:id/vista`), y el flujo completo de reacción sin sesión → modal de login
+    → `POST /auth/v1/token` real → reintento automático de la reacción →
+    `POST /api/eventos/:id/reaccion` → UI actualizada. Confirmado además contra la
+    tabla `vidriera_reacciones` (no solo la UI) que quedó exactamente una fila.
+  - Dos bugs encontrados y corregidos durante esta verificación (ninguno viable de
+    detectar solo leyendo el código): el modal de login se renderizaba abierto por
+    default (una regla CSS de la clase pisaba el `display:none` implícito del
+    atributo `hidden` por especificidad de cascada — se agregó
+    `.mm-modal-backdrop[hidden]{display:none}`), y el reintento de reacción
+    post-login nunca se disparaba (`closeLoginModal()` limpiaba
+    `pendingAfterLogin` a `null` un statement antes de leerlo).
+  - Datos y usuario de prueba borrados al final por id exacto (no por filtro
+    amplio de `academia_id`), sin dejar rastro — Supabase quedó en el mismo estado
+    en que se encontró (confirmado con conteos de filas antes/después).
 
 ---
 
