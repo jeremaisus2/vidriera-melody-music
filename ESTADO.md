@@ -5,9 +5,46 @@
 
 ## Resumen
 
-**Etapa 1 completa.** Módulo Vidriera operativo con store en memoria y auth mock.
-Todo el flujo (crear → moderar → editar → aprobar edición) probado sin Supabase real.
-**Supabase está preparado pero NO conectado activamente — eso es Etapa 2.**
+**Etapa 1 completa — módulos Vidriera y Calendario.** Toda la lógica de negocio
+operativa con store en memoria y auth mock. **Supabase preparado pero sin conectar — eso es Etapa 2.**
+
+---
+
+## Sesión 2026-07-08 #3 — Módulo Calendario de eventos (Etapa 1: mock)
+
+### Hecho
+- Store extendido con estado completo de eventos: `eventos`, `eventoSponsors`,
+  `rsvp`, `reacciones`, `galeria`, `testimonios`. Seed: 3 eventos (2 futuros, 1 pasado
+  con fotos de galería).
+- Controlador público (`src/controllers/eventos.controller.js`):
+  listar (filtros `?tipo` y `?soloFuturos`), ver evento (con stats embebidas),
+  sponsors, galería, testimonios, RSVP (upsert), reacciones (toggle por tipo),
+  testimonio de familia.
+- QR por evento (`GET /api/eventos/:id/qr`): genera PNG con `qrcode`, codifica
+  `APP_URL/eventos/:id`. Devuelve `image/png` directamente.
+- Controlador admin actualizado (`src/controllers/admin.controller.js`):
+  CRUD de eventos (crear/editar/eliminar con limpieza en cascada), sponsors por evento
+  (solo publicaciones `approved`), galería (agregar/eliminar foto).
+- **Destacado rotativo** (`GET /api/publicaciones/destacado`): sponsors del evento
+  cuya ventana activa coincide con la fecha actual (7 días antes → 2 días después).
+  Sin evento activo devuelve `{ destacado: null }`.
+- `APP_URL` en `.env.example` y `env.js`.
+- Rutas de eventos y admin actualizadas (todas conectadas a controladores reales).
+
+### Probado (smoke test — 30 casos)
+- Listar eventos con filtros tipo y soloFuturos ✓
+- Ver evento / 404 en inexistente ✓
+- QR generado como image/png ✓
+- Sponsors filtran publicaciones no-approved ✓
+- Galería y testimonios seed ✓
+- RSVP (confirmar / cancelar / upsert) ✓
+- Reacciones toggle (activa → false en segundo call) ✓
+- Testimonio con validación de texto ✓
+- Admin CRUD de eventos con validaciones ✓
+- Sponsors admin rechaza pub pending ✓
+- Agregar/eliminar foto de galería ✓
+- Destacado rotativo sin ventana activa → sin-ventana ✓
+- Eliminar evento limpia datos asociados ✓
 
 ---
 
@@ -59,20 +96,17 @@ Todo el flujo (crear → moderar → editar → aprobar edición) probado sin Su
 
 ---
 
-## Falta (Etapa 2 en adelante, en orden sugerido)
+## Falta (próximos pasos, en orden sugerido)
 
-1. **Conectar Supabase real** (Etapa 2):
-   - Crear `.env` con credenciales reales de Supabase.
-   - Aplicar `db/schema.sql` y `db/seed.sql` en el SQL editor.
-   - Definir políticas **RLS** por rol (`db/policies.sql`, pendiente).
+1. Panel **super-admin** (Etapa 1 mock): alta de academias y catálogo de módulos.
+2. **Estadísticas de vistas** por emprendimiento (panel admin).
+3. **Conectar Supabase real** (Etapa 2):
+   - Crear `.env` con credenciales reales.
+   - Aplicar `db/schema.sql` + `db/seed.sql` en el SQL editor.
+   - Escribir políticas **RLS** por rol (`db/policies.sql`).
    - Cambiar `MOCK_AUTH=false`; el resto del código no cambia.
-2. Módulo **Calendario de eventos**: crear/editar eventos, RSVP, reacciones,
-   testimonios, galería, QR por evento.
-3. **Sponsors y destacado rotativo** guiado por calendario.
-4. Panel **super-admin**: alta de academias y activación de módulos.
-5. **Estadísticas de vistas** por emprendimiento.
-6. Upload de imágenes a Supabase Storage (con compresión previa).
-7. Handoff visual (bundle de Claude Design) → integrar estilos/componentes.
+4. Upload de imágenes a Supabase Storage (con compresión previa).
+5. Handoff visual (bundle de Claude Design) → integrar estilos/componentes.
 
 ## Notas / pendientes de confirmar
 - Estrategia de compresión de imágenes antes de subir a Storage.

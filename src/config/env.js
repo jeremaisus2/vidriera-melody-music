@@ -18,6 +18,7 @@ function supabaseVar(name) {
 export const env = {
   port: Number(process.env.PORT ?? 3000),
   nodeEnv: process.env.NODE_ENV ?? 'development',
+  appUrl: process.env.APP_URL ?? 'http://localhost:3000',
   mockAuth,
   supabase: {
     url: supabaseVar('SUPABASE_URL'),

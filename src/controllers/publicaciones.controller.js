@@ -41,6 +41,15 @@ export function misPublicaciones(req, res) {
   return res.json(store.getPublicacionesByOwner(req.user.id));
 }
 
+/**
+ * Destacado rotativo: sponsors del evento más próximo cuya ventana está activa.
+ * Ventana = 7 días antes a 2 días después del evento.
+ * Devuelve null en `destacado` si no hay evento activo.
+ */
+export function destacadoRotativo(req, res) {
+  return res.json(store.getDestacadoRotativo() ?? { destacado: null, mensaje: 'Sin evento activo en ventana de destacado.' });
+}
+
 export function crearPublicacion(req, res) {
   const { nombre, categoria, descripcion, imagen_url, whatsapp } = req.body;
 
