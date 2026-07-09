@@ -58,7 +58,11 @@
 .mm-preview-badge.nuevo { background: var(--status-tint-bg); color: var(--status-tint-text); }
 .mm-preview-badge.edicion { background: var(--accent-tint); color: var(--accent); }
 
-.mm-preview-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; max-width: 340px; }
+.mm-preview-card {
+  background: #fff; border: 1px solid transparent; border-radius: var(--card-radius);
+  overflow: hidden; display: flex; flex-direction: column; max-width: 340px;
+  box-shadow: var(--shadow-card); transform: translateY(-4px);
+}
 .mm-preview-card-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
 
 .mm-changes-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; font-size: 12.5px; color: var(--body-text); }

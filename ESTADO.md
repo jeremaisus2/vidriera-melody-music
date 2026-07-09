@@ -198,6 +198,93 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
   sesión #10). Falta decidir si el negocio necesita self-registration antes de
   producción, y si es así, si el registro es libre o requiere invitación/código
   de la academia (para que no se sume gente ajena). Sin definición todavía.
+- **Dirección visual**: cambió de "flat, sin sombras" (README original del
+  handoff) a "sombras marcadas" por decisión del cliente — ver sesión #11 y
+  `ARQUITECTURA.md` §6.2. El README del `design-bundle/` quedó desactualizado en
+  ese punto puntual (fidelidad de sombras/profundidad); el resto del handoff
+  (layout, tipografía, colores, copy, interacciones) sigue vigente tal cual.
+
+---
+
+### Sesión 2026-07-09 #11 — Cambio de dirección visual: de "flat" a sombras marcadas
+
+**Cambio deliberado que contradice el README original del handoff**
+(`design-bundle/design_handoff_portal_padres/README.md`), que pedía
+explícitamente "sober/flat... explícitamente no glossy/3D/metallic". El cliente
+decidió lo contrario después de comparar alternativas — queda documentado acá
+y en `ARQUITECTURA.md` §6.2 como una decisión posterior, no un error de
+implementación de las sesiones #6/#8/#9 (esas sí siguieron el README al pie de
+la letra, correctamente, en su momento).
+
+**1. Herramienta de comparación temporal** (`comparacion-estilo.html`,
+ya no existe — se armó y se borró en esta misma sesión)
+- Página aparte, no enlazada desde ningún HTML de la app, mostrando 3 niveles
+  de sombra lado a lado (A plano / C moderado / B exagerado) sobre datos
+  reales, para que el cliente decidiera con el ojo puesto en la app real y no
+  en una descripción abstracta.
+- No había publicaciones aprobadas en la base real en ese momento — se
+  sembraron 2 vía el flujo real (familia crea → admin aprueba), no por
+  insert directo, para que la comparación mostrara la tarjeta tal como se ve
+  en producción. La cuenta de familia (`familia.demo@bariloche.com` /
+  `DemoFamilia2026`, rol cliente) se creó como persistente a propósito (borrar
+  al dueño de las publicaciones las hubiera borrado en cascada); el admin
+  usado solo para aprobar sí era descartable (nada referencia al admin que
+  aprobó) y se borró en el momento.
+- El cliente pidió exagerar más la columna B (la diferencia inicial no se
+  notaba) y agregar una columna C intermedia — se reordenaron visualmente
+  como A→C→B (de menor a mayor profundidad) aunque el pedido las nombraba
+  A/B/C en otro orden, para que la progresión se leyera de izquierda a
+  derecha sin ambigüedad.
+
+**2. Decisión final: estilo B (sombra exagerada) al proyecto real**
+- Nuevos tokens en `:root` de `public/css/styles.css`: `--shadow-card` (dos
+  capas, `0 24px 48px rgba(26,26,26,.30), 0 10px 20px rgba(26,26,26,.20)`) y
+  `--card-radius: 16px` (antes 10px). Deliberadamente más marcado que un
+  estándar de producción — decisión consciente del cliente, no una
+  recomendación de buenas prácticas.
+- Aplicado a toda superficie tipo tarjeta en las tres pantallas:
+  `.mm-biz-card`, `.mm-sponsor-card`, `.mm-event-card`, `.mm-past-event-card`,
+  `.mm-testimonial-card`, `.mm-modal` (login, compartido por vidriera/admin/
+  super-admin) y `.mm-preview-card` (`admin.css`). Sin cambios en pills,
+  botones, filas de lista (cola de admin, clientes de super-admin), badges ni
+  placeholders de imagen/QR — no son "tarjetas" en el vocabulario de
+  componentes de la app.
+- `.mm-sponsor-card` es la única que retuvo su borde (verde, `--accent-border`):
+  no es decorativo, distingue un sponsor pago de una tarjeta de directorio
+  común — se le sumó la sombra encima del borde en vez de reemplazarlo. El
+  resto de las tarjetas perdió el borde de 1px (quedó `transparent`): a esta
+  intensidad de sombra, borde + sombra se veía recargado.
+- Tarjetas de negocio/evento/pasado/testimonio también llevan `transform:
+  translateY(-4px)` (efecto "levantado"); el modal no lo necesita, ya tiene su
+  propia señal de profundidad (overlay oscuro de fondo).
+- **Verificado con Playwright en las tres pantallas** después del cambio:
+  `.mm-biz-card` con `box-shadow` presente y `border-radius: 16px` (confirmado
+  por CSS computado, no solo visual); filtro de categoría sigue funcionando
+  (no se rompió nada de JS, esto fue un cambio 100% CSS); modal de login con
+  sombra en vidriera, admin y super-admin; panel de admin logueado sin errores
+  de consola (cola vacía es el estado real, no un bug). Capturas de las tres
+  pantallas revisadas a simple vista además del chequeo automatizado.
+- Datos de verificación (una publicación temporal + un admin temporal, ambos
+  descartables) borrados al final. Las 2 publicaciones de la comparación
+  también se borraron (pedido explícito, "cumplieron su función").
+
+**3. `scripts/crear-usuario.mjs` ahora soporta `super_admin`**
+- Extensión puntual pedida en la misma sesión: antes solo aceptaba
+  `cliente`/`admin` (decisión explícita de la sesión #10, que ya no aplicaba
+  una vez que hizo falta un `super_admin` real de prueba). `super_admin` no
+  está atado a ninguna academia, así que el contrato de argumentos cambia para
+  ese rol: `node scripts/crear-usuario.mjs <email> <password> super_admin [nombre]`
+  (sin slug de academia — el 4to argumento pasa a ser directamente el nombre).
+- Usado para crear `supergiza@bariloche.com` (persistente, no se borró) y
+  verificado end-to-end contra `GET /api/super-admin/academias` con el JWT
+  real.
+
+**Cuentas reales/demo que quedaron en la base tras esta sesión** (ninguna es
+descartable sin avisar, a diferencia de las `.tmp@` que sí se limpian solas):
+`giza@bariloche.com` (admin, de la sesión #3), `supergiza@bariloche.com` /
+`juani2026` (super_admin), `familia.demo@bariloche.com` / `DemoFamilia2026`
+(cliente — hoy sin publicaciones propias, quedó huérfana después de borrar
+las 2 de la comparación; no se borró la cuenta en sí porque no se pidió).
 
 ---
 

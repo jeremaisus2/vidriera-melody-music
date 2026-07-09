@@ -126,6 +126,41 @@ Bug real, encontrado dos veces (vidriera sesión #6, admin sesión #8) — antes
 sumar una pantalla nueva con paneles/modales toggleados por `hidden`, agregar
 el override desde el principio en vez de esperar a que aparezca en una captura.
 
+### 6.2. Dirección visual: sombras marcadas (reemplaza al "flat" del README original)
+
+**El README del handoff original (`design-bundle/design_handoff_portal_padres/README.md`)
+pedía explícitamente una dirección "sober/flat": sin sombras, superficies planas con
+borde de 1px, "explícitamente no glossy/3D/metallic". Esa dirección quedó reemplazada**
+por decisión del cliente (sesión #12, ver ESTADO.md): sombras marcadas y tarjetas
+"levantadas" en toda la app (vidriera, admin, super-admin). La decisión se tomó
+después de comparar tres niveles de referencia (plano / sombra moderada / sombra
+exagerada) en una herramienta de comparación temporal con datos reales, que ya no
+existe (se armó y se borró en la misma sesión, no es parte de la app).
+
+Implementación en `public/css/styles.css`, tokens en `:root`:
+- `--shadow-card: 0 24px 48px rgba(26,26,26,.30), 0 10px 20px rgba(26,26,26,.20)`
+- `--card-radius: 16px` (antes 10px en la mayoría de las tarjetas)
+
+Aplicado a toda superficie tipo "tarjeta" (no a pills, botones, filas de lista,
+badges, ni placeholders de imagen/QR, que no cambiaron): `.mm-biz-card`,
+`.mm-sponsor-card`, `.mm-event-card`, `.mm-past-event-card`, `.mm-testimonial-card`,
+`.mm-modal` (login, en las tres pantallas) y `.mm-preview-card` (admin.css). Las
+tarjetas de negocio/evento/pasado/testimonio también llevan `transform:
+translateY(-4px)` para el efecto "levantado"; el modal no, porque ya tiene su
+propia señal de profundidad (el overlay oscuro de fondo). `.mm-sponsor-card`
+retuvo su borde verde (`--accent-border`): no es decorativo, distingue
+visualmente un sponsor pago de una tarjeta de directorio común — se le sumó la
+sombra encima en vez de reemplazar el borde. El resto de las tarjetas perdió el
+borde de 1px (transparent) porque a esta intensidad de sombra, borde + sombra
+se veía recargado.
+
+**Los valores son deliberadamente más marcados que lo que se usaría "en serio" en
+un producto — fue una elección consciente del cliente para que la diferencia
+contra la dirección plana anterior sea inequívoca, no una recomendación de
+mejores prácticas de esta sesión.** Si en el futuro se quiere afinar (menos
+opacidad, menos blur), tocar solo los dos tokens de arriba: todas las tarjetas
+los referencian, no hay valores de sombra hardcodeados sueltos por archivo.
+
 ## 7. Seguridad y datos
 
 - Tres clientes Supabase (`src/config/supabase.js`): `supabaseAdmin` (service_role,
