@@ -32,50 +32,54 @@
   </div>
 </div>
 
-<div id="adminShell" hidden>
+<div id="adminShell" class="mm-app-shell" hidden>
 
-  <header class="mm-header">
-    <div class="mm-header-brand">
+  <aside class="mm-sidebar">
+    <div class="mm-sidebar-brand">
       <div class="mm-logo">M</div>
       <div>
         <div class="mm-wordmark">Melody Music</div>
         <div class="mm-wordmark-sub">Panel de administración</div>
       </div>
-      <span class="mm-role-badge">Admin</span>
     </div>
-    <div class="mm-header-right">
-      <nav class="mm-nav">
-        <span class="mm-nav-active">Cola de aprobación</span>
-        <span class="mm-nav-disabled" title="Disponible próximamente">Categorías</span>
-        <span class="mm-nav-disabled" title="Disponible próximamente">Eventos</span>
-      </nav>
+
+    <div class="mm-sidebar-user">
       <button type="button" class="mm-avatar" id="avatarBtn" aria-label="Mi cuenta">A</button>
-    </div>
-  </header>
-
-  <div class="mm-tabs">
-    <button type="button" class="mm-tab active" id="tabQueueBtn">Cola de aprobación</button>
-    <button type="button" class="mm-tab" id="tabStatsBtn">Estadísticas de vistas</button>
-  </div>
-
-  <section id="tabQueue" class="mm-admin-shell">
-    <div class="mm-queue-list">
-      <div class="mm-queue-header">
-        <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;">Publicaciones pendientes</div>
-        <div class="mm-queue-count" id="pendingCountLabel"></div>
+      <div class="mm-sidebar-user-info">
+        <span class="mm-role-badge">Admin</span>
+        <div class="mm-sidebar-user-email" id="userEmailLabel"></div>
       </div>
-      <div id="queueRows"></div>
     </div>
-    <div class="mm-preview-pane" id="previewPane">
-      <p class="mm-empty">Seleccioná una publicación de la lista para ver el detalle.</p>
-    </div>
-  </section>
 
-  <section id="tabStats" class="mm-stats-wrap" hidden>
-    <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Vistas por emprendimiento</div>
-    <div class="mm-stats-subtitle">Total acumulado · solo publicaciones aprobadas</div>
-    <div id="statsList"></div>
-  </section>
+    <nav class="mm-sidebar-nav">
+      <button type="button" class="mm-sidebar-item active" id="navQueueBtn">Cola de aprobación</button>
+      <button type="button" class="mm-sidebar-item" id="navStatsBtn">Estadísticas de vistas</button>
+      <div class="mm-sidebar-divider"></div>
+      <span class="mm-sidebar-item disabled" title="Disponible próximamente">Orden de la vidriera</span>
+      <span class="mm-sidebar-item disabled" title="Disponible próximamente">Textos de la página</span>
+    </nav>
+  </aside>
+
+  <main class="mm-app-main">
+    <section id="tabQueue" class="mm-admin-shell">
+      <div class="mm-queue-list">
+        <div class="mm-queue-header">
+          <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;">Publicaciones pendientes</div>
+          <div class="mm-queue-count" id="pendingCountLabel"></div>
+        </div>
+        <div id="queueRows"></div>
+      </div>
+      <div class="mm-preview-pane" id="previewPane">
+        <p class="mm-empty">Seleccioná una publicación de la lista para ver el detalle.</p>
+      </div>
+    </section>
+
+    <section id="tabStats" class="mm-stats-wrap" hidden>
+      <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Vistas por emprendimiento</div>
+      <div class="mm-stats-subtitle">Total acumulado · solo publicaciones aprobadas</div>
+      <div id="statsList"></div>
+    </section>
+  </main>
 
 </div>
 

@@ -175,24 +175,27 @@ async function verifyAdminAndEnter() {
   const email = session?.user?.email ?? '';
   avatarBtn.textContent = email.slice(0, 2).toUpperCase() || 'A';
   avatarBtn.title = `Sesión iniciada: ${email} (click para salir)`;
+  document.getElementById('userEmailLabel').textContent = email;
   renderQueue(data);
   loadStats();
 }
 
 // ---------------------------------------------------------------------------
-// Tabs
+// Navegación (barra lateral) — reemplaza a las tabs horizontales. Preparada
+// para sumar más secciones (Orden de la vidriera, Textos de la página) sin
+// tocar este patrón: agregar un botón más y un case más en setActiveSection.
 // ---------------------------------------------------------------------------
-document.getElementById('tabQueueBtn').addEventListener('click', () => setActiveTab('queue'));
-document.getElementById('tabStatsBtn').addEventListener('click', () => {
-  setActiveTab('stats');
+document.getElementById('navQueueBtn').addEventListener('click', () => setActiveSection('queue'));
+document.getElementById('navStatsBtn').addEventListener('click', () => {
+  setActiveSection('stats');
   loadStats(); // re-fetch en cada visita: recién aprobado no debería quedar afuera hasta recargar la página
 });
 
-function setActiveTab(tab) {
-  document.getElementById('tabQueueBtn').classList.toggle('active', tab === 'queue');
-  document.getElementById('tabStatsBtn').classList.toggle('active', tab === 'stats');
-  document.getElementById('tabQueue').hidden = tab !== 'queue';
-  document.getElementById('tabStats').hidden = tab !== 'stats';
+function setActiveSection(section) {
+  document.getElementById('navQueueBtn').classList.toggle('active', section === 'queue');
+  document.getElementById('navStatsBtn').classList.toggle('active', section === 'stats');
+  document.getElementById('tabQueue').hidden = section !== 'queue';
+  document.getElementById('tabStats').hidden = section !== 'stats';
 }
 
 // ---------------------------------------------------------------------------

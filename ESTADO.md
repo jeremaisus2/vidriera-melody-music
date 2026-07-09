@@ -206,6 +206,61 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-09 #12 — Etapa B: barra lateral en el panel de admin (`admin.html`)
+
+Rediseño de navegación pedido por el cliente como "Etapa B" (terminología
+propia, no mapea a las Etapas 1/2 del proyecto de más arriba — esas son de
+infraestructura/backend, esto es de UX del panel de admin). Cambio de layout
+puro: la lógica de moderación y estadísticas no se tocó.
+
+- **Header horizontal + tabs → barra lateral fija.** `admin.html` ya no tiene
+  el `<header>` de 76px con nav horizontal; la barra lateral (260px, `position:
+  sticky`) absorbe esa identidad: logo + nombre de academia arriba, después
+  avatar + badge de rol + email del usuario logueado, después el menú de
+  navegación. El contenido de "Cola de aprobación" y "Estadísticas de vistas"
+  es exactamente el mismo HTML/JS que antes (mismos ids `tabQueue`/`tabStats`,
+  misma lógica de `renderQueue`/`renderPreview`/`moderar`/`loadStats`), solo
+  que ahora vive dentro de `<main class="mm-app-main">` y se togglea desde
+  botones de la barra lateral (`navQueueBtn`/`navStatsBtn`) en vez de tabs
+  (`tabQueueBtn`/`tabStatsBtn` — renombrados, `setActiveTab` pasó a llamarse
+  `setActiveSection`).
+- **Preparado para las próximas secciones sin rehacer el layout** (pedido
+  explícito): dos ítems `.mm-sidebar-item.disabled` ("Orden de la vidriera",
+  "Textos de la página") ya están en el menú, inertes, con el mismo patrón
+  visual que se usó para "Categorías"/"Eventos" en el header viejo. Sumar una
+  sección real más adelante es: un botón más en el nav, un `<section>` más en
+  `.mm-app-main`, y un branch más en `setActiveSection` — no hace falta tocar
+  la estructura de la barra.
+- Los nombres "Categorías"/"Eventos" (nav placeholder del header viejo, nunca
+  tuvieron funcionalidad) no se migraron a la barra lateral — el cliente
+  definió explícitamente los 4 ítems del menú nuevo (2 reales + 2 futuros) y
+  esos dos no están en la lista, así que se dejaron afuera en vez de
+  arrastrarlos sin que nadie los pidiera.
+- Sombras marcadas (sesión #11) aplicadas también acá: `.mm-preview-card`
+  (preview de la publicación seleccionada) ya las tenía desde esa sesión, sin
+  cambios adicionales necesarios — se reconfirmó con Playwright que el
+  `box-shadow` sigue presente después del rediseño de layout.
+- **Aplicado el mismo criterio del bug de `[hidden]`** (documentado como
+  patrón a evitar desde la sesión #9): `.mm-app-shell` declara `display:flex`,
+  así que se agregó `.mm-app-shell[hidden]{display:none}` desde el principio.
+  Esta vez no hubo que depurarlo con captura de pantalla — funcionó a la
+  primera.
+- **Verificado con Playwright de punta a punta contra Supabase real**,
+  sembrando una publicación nueva + una aprobada con vistas vía el flujo real
+  (familia crea, admin aprueba): login rechazado para no-admin (sin cambios,
+  no se tocó esa parte), gate visualmente oculto tras loguearse, sidebar y
+  email visibles, ítem activo correcto en cada sección, cambio de sección
+  funcionando (oculta/muestra el `<section>` correcto), rechazo de una
+  publicación con motivo confirmado contra la base real (la cola quedó en 0
+  después), estadísticas con la publicación aprobada y su barra proporcional.
+  Sin errores de consola. Datos de prueba borrados al final por id exacto.
+- No se tocó `index.html`/`styles.css` (vidriera) ni `super-admin.html`/
+  `super-admin.css` — confirmado que siguen respondiendo 200 después del
+  cambio, ninguno depende de las clases que se borraron de `admin.css`
+  (`.mm-tabs`/`.mm-tab`, dead code eliminado en vez de dejarlo sin usar).
+
+---
+
 ### Sesión 2026-07-09 #11 — Cambio de dirección visual: de "flat" a sombras marcadas
 
 **Cambio deliberado que contradice el README original del handoff**
