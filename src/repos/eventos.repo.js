@@ -163,10 +163,10 @@ export async function getReaccionesByUser(supabase, user_id) {
 // service_role salta RLS: el scope por academia (que en RLS resuelve
 // `vidriera_academia_id()`) se aplica acá a mano con `.eq('academia_id', ...)`.
 // ---------------------------------------------------------------------------
-export async function crearEvento({ academia_id, nombre, tipo, fecha, lugar, descripcion }) {
+export async function crearEvento({ academia_id, nombre, tipo, fecha, lugar, descripcion, es_demo = false }) {
   const { data, error } = await supabaseAdmin
     .from('vidriera_eventos')
-    .insert({ academia_id, nombre, tipo, fecha, lugar: lugar ?? null, descripcion: descripcion ?? null })
+    .insert({ academia_id, nombre, tipo, fecha, lugar: lugar ?? null, descripcion: descripcion ?? null, es_demo })
     .select()
     .single();
   if (error) throw error;

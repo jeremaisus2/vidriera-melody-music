@@ -14,7 +14,8 @@ function pathDesdeUrlPublica(url) {
 /**
  * Borra de una sola vez todo el contenido de demostración (Etapa H):
  * las publicaciones marcadas `es_demo`, sus imágenes (portada + logo) en
- * Storage, y las familias demo asociadas (`vidriera_codigos_familia.es_demo`).
+ * Storage, las familias demo asociadas (`vidriera_codigos_familia.es_demo`),
+ * y los eventos marcados `es_demo` con sus fotos de galería en Storage.
  *
  * Alcance global (todas las academias), no por cliente: el botón vive en
  * "Configuración de la plataforma" del panel super-admin, no en una
@@ -22,12 +23,15 @@ function pathDesdeUrlPublica(url) {
  *
  * Orden: primero se leen los paths de Storage (antes de borrar nada, para
  * no perder la referencia), después se borran los archivos, después las
- * filas de `vidriera_publicaciones` de forma explícita (no depende de que
- * las publicaciones demo pertenezcan a una familia demo: cualquier fila
- * `es_demo=true` se borra igual), y por último se borran los usuarios de
- * Auth de las familias demo — por `on delete cascade` eso se lleva puestos
- * `vidriera_perfiles` y la propia fila de `vidriera_codigos_familia` sin
- * necesidad de un delete manual aparte sobre esas dos tablas.
+ * filas de `vidriera_publicaciones` y `vidriera_eventos` de forma explícita
+ * (no depende de que pertenezcan a una familia demo: cualquier fila
+ * `es_demo=true` se borra igual) — borrar el evento se lleva puestos en
+ * cascada sponsors/rsvp/reacciones/galería/testimonios (`on delete cascade`,
+ * mismo criterio que ya usa `eliminarEvento()`) — y por último se borran los
+ * usuarios de Auth de las familias demo — por `on delete cascade` eso se
+ * lleva puestos `vidriera_perfiles` y la propia fila de
+ * `vidriera_codigos_familia` sin necesidad de un delete manual aparte sobre
+ * esas dos tablas.
  */
 export async function borrarContenidoDemo() {
   const { data: publicaciones, error: errorPub } = await supabaseAdmin
@@ -42,9 +46,27 @@ export async function borrarContenidoDemo() {
     .eq('es_demo', true);
   if (errorFam) throw errorFam;
 
-  const storagePaths = publicaciones
-    .flatMap((p) => [pathDesdeUrlPublica(p.imagen_url), pathDesdeUrlPublica(p.logo_url)])
-    .filter(Boolean);
+  const { data: eventos, error: errorEventos } = await supabaseAdmin
+    .from('vidriera_eventos')
+    .select('id')
+    .eq('es_demo', true);
+  if (errorEventos) throw errorEventos;
+
+  const eventoIds = eventos.map((e) => e.id);
+  let galeria = [];
+  if (eventoIds.length > 0) {
+    const { data, error: errorGaleria } = await supabaseAdmin
+      .from('vidriera_galeria')
+      .select('id, imagen_url')
+      .in('evento_id', eventoIds);
+    if (errorGaleria) throw errorGaleria;
+    galeria = data;
+  }
+
+  const storagePaths = [
+    ...publicaciones.flatMap((p) => [pathDesdeUrlPublica(p.imagen_url), pathDesdeUrlPublica(p.logo_url)]),
+    ...galeria.map((f) => pathDesdeUrlPublica(f.imagen_url)),
+  ].filter(Boolean);
 
   if (storagePaths.length > 0) {
     const { error } = await supabaseAdmin.storage.from(BUCKET).remove(storagePaths);
@@ -56,6 +78,11 @@ export async function borrarContenidoDemo() {
     if (error) throw error;
   }
 
+  if (eventoIds.length > 0) {
+    const { error } = await supabaseAdmin.from('vidriera_eventos').delete().eq('es_demo', true);
+    if (error) throw error;
+  }
+
   for (const f of familias) {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(f.user_id);
     if (error) throw error;
@@ -63,6 +90,7 @@ export async function borrarContenidoDemo() {
 
   return {
     publicaciones_borradas: publicaciones.length,
+    eventos_borrados: eventoIds.length,
     imagenes_borradas: storagePaths.length,
     familias_borradas: familias.length,
   };

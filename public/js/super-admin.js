@@ -513,7 +513,7 @@ document.getElementById('borrarDemoBtn').addEventListener('click', async () => {
     return;
   }
 
-  showToast(`Borrado: ${data.publicaciones_borradas} publicaciones, ${data.imagenes_borradas} imágenes, ${data.familias_borradas} familias.`);
+  showToast(`Borrado: ${data.publicaciones_borradas} publicaciones, ${data.eventos_borrados} eventos, ${data.imagenes_borradas} imágenes, ${data.familias_borradas} familias.`);
 });
 
 // ---------------------------------------------------------------------------

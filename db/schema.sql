@@ -136,7 +136,8 @@ create table if not exists vidriera_eventos (
   lugar         text,            -- lugar/salón del evento (opcional: eventos virtuales pueden omitirlo)
   descripcion   text,
   qr_url        text,                -- QR generado para compartir por WhatsApp
-  created_at    timestamptz not null default now()
+  created_at    timestamptz not null default now(),
+  es_demo       boolean not null default false -- contenido de demostración (Etapa H) — borrable de una vez
 );
 
 create index if not exists idx_vidriera_eventos_academia on vidriera_eventos(academia_id);

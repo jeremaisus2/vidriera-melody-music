@@ -208,6 +208,80 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-10 #20 — Etapa H, cont.: contenido de demostración de eventos
+
+Pedido inicial: "correr `seed-demo` contra producción porque el sitio recién
+desplegado en Hostinger no tiene datos". Antes de ejecutar nada se verificó
+(lectura, sin escribir) el estado real de la base de producción y la premisa
+resultó parcialmente incorrecta: las 6 publicaciones demo de la sesión #19
+**ya estaban** en producción (`familias.melodymusicinstruments.com` apunta al
+mismo proyecto Supabase del `.env` local, confirmado con `curl` contra la API
+pública real) — reseedear no hubiera hecho nada, el guard anti-duplicado de
+`seed-demo.mjs` lo hubiera bloqueado. El problema real era otro: **nunca
+existió ningún seed de eventos** — `vidriera_eventos`/`vidriera_testimonios`/
+`vidriera_galeria` estaban en 0 filas porque `seed-demo.mjs` (sesión #19) solo
+contempló publicaciones, y `db/seed.sql` solo siembra catálogo (módulos/
+categorías/la academia). Confirmado con el usuario antes de escribir nada.
+
+**Migración** (`db/migrations/009_eventos_demo.sql`, corrida por el usuario en
+el SQL Editor): `es_demo boolean not null default false` en `vidriera_eventos`,
+mismo criterio que publicaciones/familias (sesión #19). A diferencia de esas
+dos tablas, acá no hizo falta marcar nada más: `vidriera_evento_sponsors`/
+`vidriera_rsvp`/`vidriera_reacciones`/`vidriera_galeria`/`vidriera_testimonios`
+ya se borran en cascada al borrar la fila del evento (`on delete cascade`, el
+mismo mecanismo que ya usaba `eliminarEvento()`), así que alcanza con marcar
+el evento.
+
+**`scripts/seed-eventos-demo.mjs`** (nuevo, `npm run seed-eventos-demo --
+[slug-academia]`): mismo guard anti-duplicado que `seed-demo.mjs` (si ya hay
+`vidriera_eventos.es_demo=true`, avisa y no siembra). Requiere haber corrido
+`seed-demo` antes (reusa 2 de las 6 publicaciones demo como sponsors, y la
+familia demo existente como `user_id` de los testimonios — no crea cuentas
+nuevas). Crea:
+- **1 evento próximo** ("Muestra de fin de año", tipo `muestra`, a 18 días) con
+  2 publicaciones demo como sponsors (`eventosRepo.setSponsors`).
+- **1 evento pasado** ("Concierto de primavera", tipo `concierto`, hace 45
+  días) con 3 fotos de galería reales (descargadas de picsum.photos con seed
+  fijo y subidas por el mismo flujo de Storage que usa la app,
+  `uploadsRepo.subirImagen`, no linkeadas directo — mismo criterio que la
+  sesión #19) y 2 testimonios de ejemplo (`vidriera_testimonios`, insertados
+  directo con `supabaseAdmin` ya que no hay ninguna sesión de familia real
+  detrás de un script de seed).
+
+Se extendió `eventosRepo.crearEvento()` para aceptar `es_demo` (default
+`false`, no rompe a `admin.controller.js`, que no lo pasa).
+
+**`demo.repo.js` (`borrarContenidoDemo`) extendido** para que el botón
+"Borrar datos de demostración" del panel de super-admin también se lleve los
+eventos demo: lee primero los paths de Storage de la galería de esos eventos
+(antes de borrar nada), los borra del bucket junto con las imágenes de
+publicaciones, borra las filas `vidriera_eventos` explícitas por
+`es_demo=true` (el cascade se encarga de sponsors/galería/testimonios), y
+devuelve también `eventos_borrados` en la respuesta — el toast del frontend
+(`public/js/super-admin.js`) se actualizó para mostrar ese conteo.
+
+**Verificado end-to-end contra producción real** (no solo contra Supabase
+directo, sino contra el dominio público desplegado):
+- Conteos por lectura directa a Supabase antes de sembrar: 6 publicaciones
+  demo ya existentes, 0 eventos/testimonios/galería.
+- Corrida real de `npm run seed-eventos-demo` contra el proyecto de
+  producción: evento próximo con 2 sponsors, evento pasado con 3 fotos +
+  2 testimonios, confirmado por lectura directa a Supabase después de
+  sembrar.
+- `curl` contra `https://familias.melodymusicinstruments.com/api/eventos`,
+  `/api/eventos/:id/galeria` y `/api/eventos/:id/testimonios` reales: los 2
+  eventos, las 3 fotos y los 2 testimonios aparecen con los datos correctos
+  (`es_pasado` calculado bien para cada uno).
+- Una de las URLs de imagen de galería descargada directo con `curl -I`:
+  200, `image/webp` — no es un link roto, es un archivo real en Storage.
+
+No se hizo limpieza al final: a diferencia de las verificaciones E2E de
+sesiones anteriores (que usaban datos de prueba descartables), acá el
+contenido creado **es** el resultado final pedido — debe quedar visible en
+producción, no borrarse.
+
+---
+
 ### Sesión 2026-07-10 #19 — Etapa H: contenido de demostración
 
 Seis negocios de ejemplo para poder mostrar la plataforma con contenido
