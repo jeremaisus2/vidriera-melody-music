@@ -6,8 +6,12 @@ import { adminRouter } from './admin.routes.js';
 import { superadminRouter } from './superadmin.routes.js';
 import { uploadsRouter } from './uploads.routes.js';
 import { textosRouter } from './textos.routes.js';
+import { authRouter } from './auth.routes.js';
 
 export const apiRouter = Router();
+
+// Login público de familias por código (sistema de "código de acceso")
+apiRouter.use('/auth', authRouter);
 
 // Módulo: Vidriera de emprendimientos
 apiRouter.use('/publicaciones', publicacionesRouter);

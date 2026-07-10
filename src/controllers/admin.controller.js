@@ -1,8 +1,11 @@
 import * as publicacionesRepo from '../repos/publicaciones.repo.js';
 import * as eventosRepo from '../repos/eventos.repo.js';
 import * as textosRepo from '../repos/textos.repo.js';
+import * as familiasRepo from '../repos/familias.repo.js';
+import { CATEGORIAS_VALIDAS } from './publicaciones.controller.js';
 
 const TIPOS_VALIDOS = ['concierto', 'muestra', 'examen'];
+const CODIGO_MIN_LEN = 6; // no es una contraseña de alta seguridad, solo evita códigos triviales tipo "123"
 
 // ---------------------------------------------------------------------------
 // Moderación de publicaciones
@@ -199,8 +202,7 @@ export async function eliminarFoto(req, res, next) {
 // ---------------------------------------------------------------------------
 // Estadísticas de vistas
 // ---------------------------------------------------------------------------
-const CATEGORIAS_VALIDAS = ['fotografia_video', 'vestuario_arreglos', 'instrumentos', 'servicios_eventos', 'general'];
-const ESTADOS_VALIDOS    = ['pending', 'approved', 'rejected'];
+const ESTADOS_VALIDOS = ['pending', 'approved', 'rejected'];
 
 export async function estadisticasVistas(req, res, next) {
   try {
@@ -235,6 +237,48 @@ export async function listarPublicacionesAdmin(req, res, next) {
     ]);
 
     return res.json({ publicaciones, destacado_override_id });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * Alta directa (Etapa G): mismo formulario completo que el envío de una
+ * familia, pero se publica de inmediato (estado approved) sin pasar por la
+ * cola de moderación. `owner_user_id` queda en el propio admin (la columna
+ * es NOT NULL y no hay ninguna cuenta de "familia" real detrás de un alta
+ * hecha directamente por el admin) — `familia` sigue siendo el nombre
+ * identificador de texto libre, igual que en el resto de publicaciones.
+ */
+export async function crearPublicacionDirecta(req, res, next) {
+  try {
+    const { nombre, familia, categoria, descripcion, imagen_url, logo_url, sitio_web, instagram, direccion, whatsapp } = req.body;
+
+    if (!nombre?.trim())  return res.status(400).json({ error: 'El campo nombre es requerido' });
+    if (!familia?.trim()) return res.status(400).json({ error: 'El campo familia es requerido' });
+    if (!CATEGORIAS_VALIDAS.includes(categoria)) {
+      return res.status(400).json({ error: `Categoría inválida. Opciones: ${CATEGORIAS_VALIDAS.join(', ')}` });
+    }
+    if (!logo_url) {
+      return res.status(400).json({ error: 'El logo es requerido' });
+    }
+
+    const nueva = await publicacionesRepo.crearPublicacionAprobada({
+      academia_id: req.perfil.academia_id,
+      owner_user_id: req.user.id,
+      nombre: nombre.trim(),
+      familia: familia.trim(),
+      categoria,
+      descripcion,
+      imagen_url,
+      logo_url,
+      sitio_web,
+      instagram,
+      direccion,
+      whatsapp,
+    });
+
+    return res.status(201).json(nueva);
   } catch (err) {
     return next(err);
   }
@@ -299,6 +343,65 @@ export async function actualizarTexto(req, res, next) {
     if (resultado.error) return res.status(400).json({ error: resultado.error });
 
     return res.json(resultado.texto);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Familias — códigos de acceso
+// ---------------------------------------------------------------------------
+export async function listarFamilias(req, res, next) {
+  try {
+    return res.json(await familiasRepo.getFamilias(req.perfil.academia_id));
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function crearFamilia(req, res, next) {
+  try {
+    const { nombre_familia, codigo } = req.body;
+    if (!nombre_familia?.trim()) return res.status(400).json({ error: 'El nombre identificador es requerido' });
+    if (!codigo?.trim() || codigo.trim().length < CODIGO_MIN_LEN) {
+      return res.status(400).json({ error: `El código debe tener al menos ${CODIGO_MIN_LEN} caracteres` });
+    }
+
+    const resultado = await familiasRepo.crearFamilia(req.perfil.academia_id, {
+      nombre_familia: nombre_familia.trim(),
+      codigo: codigo.trim(),
+    });
+    if (resultado.error) return res.status(409).json({ error: resultado.error });
+    return res.status(201).json(resultado);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function editarCodigoFamilia(req, res, next) {
+  try {
+    const { codigo } = req.body;
+    if (!codigo?.trim() || codigo.trim().length < CODIGO_MIN_LEN) {
+      return res.status(400).json({ error: `El código debe tener al menos ${CODIGO_MIN_LEN} caracteres` });
+    }
+
+    const resultado = await familiasRepo.editarCodigoFamilia(req.perfil.academia_id, req.params.id, codigo.trim());
+    if (!resultado) return res.status(404).json({ error: 'Familia no encontrada' });
+    if (resultado.error) return res.status(409).json({ error: resultado.error });
+    return res.json(resultado);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function cambiarEstadoFamilia(req, res, next) {
+  try {
+    const { activo } = req.body;
+    if (typeof activo !== 'boolean') return res.status(400).json({ error: 'El campo activo debe ser booleano' });
+
+    const resultado = await familiasRepo.setEstadoFamilia(req.perfil.academia_id, req.params.id, activo);
+    if (!resultado) return res.status(404).json({ error: 'Familia no encontrada' });
+    return res.json({ mensaje: activo ? 'Acceso reactivado.' : 'Acceso dado de baja.', familia: resultado });
   } catch (err) {
     return next(err);
   }

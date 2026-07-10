@@ -207,6 +207,7 @@ async function verifyAdminAndEnter() {
   loadStats();
   loadOrden();
   loadTextos();
+  loadFamilias();
 }
 
 // ---------------------------------------------------------------------------
@@ -227,16 +228,22 @@ document.getElementById('navTextosBtn').addEventListener('click', () => {
   setActiveSection('textos');
   loadTextos(); // sin estado de sesión que proteger acá, se puede refrescar tranquilo
 });
+document.getElementById('navFamiliasBtn').addEventListener('click', () => {
+  setActiveSection('familias');
+  loadFamilias();
+});
 
 function setActiveSection(section) {
   document.getElementById('navQueueBtn').classList.toggle('active', section === 'queue');
   document.getElementById('navStatsBtn').classList.toggle('active', section === 'stats');
   document.getElementById('navOrdenBtn').classList.toggle('active', section === 'orden');
   document.getElementById('navTextosBtn').classList.toggle('active', section === 'textos');
+  document.getElementById('navFamiliasBtn').classList.toggle('active', section === 'familias');
   document.getElementById('tabQueue').hidden = section !== 'queue';
   document.getElementById('tabStats').hidden = section !== 'stats';
   document.getElementById('tabOrden').hidden = section !== 'orden';
   document.getElementById('tabTextos').hidden = section !== 'textos';
+  document.getElementById('tabFamilias').hidden = section !== 'familias';
 }
 
 // ---------------------------------------------------------------------------
@@ -733,6 +740,248 @@ document.getElementById('textosList').addEventListener('click', (e) => {
 
 document.getElementById('textosList').addEventListener('input', (e) => {
   if (e.target.classList.contains('mm-texto-textarea')) actualizarPreview(e.target);
+});
+
+// ---------------------------------------------------------------------------
+// Familias — códigos de acceso
+//
+// Sistema de acceso simplificado: el admin le da a cada familia un nombre
+// identificador + un código (ej. "gomezmelody"); por detrás, el backend crea
+// una cuenta real de Supabase Auth con un email técnico invisible. La
+// familia nunca ve ese email — solo usa el código en el frontend público.
+// El código se muestra siempre en esta lista (no solo al crearlo) porque el
+// admin necesita poder repetírselo a la familia si lo perdió.
+// ---------------------------------------------------------------------------
+let familias = [];
+let familiaEnEdicion = null; // id de la familia en edición, o null si es alta
+
+async function loadFamilias() {
+  const { ok, data } = await apiGet('/api/admin/familias');
+  const wrap = document.getElementById('familiasList');
+  if (!ok) {
+    wrap.innerHTML = '<p class="mm-empty">No se pudo cargar el listado de familias.</p>';
+    return;
+  }
+  familias = data;
+  renderFamilias();
+}
+
+function renderFamilias() {
+  const wrap = document.getElementById('familiasList');
+  if (familias.length === 0) {
+    wrap.innerHTML = '<p class="mm-empty">Todavía no hay familias dadas de alta.</p>';
+    return;
+  }
+
+  wrap.innerHTML = familias.map((f) => `
+    <div class="mm-familia-row" data-id="${f.id}">
+      <div class="mm-familia-row-info">
+        <div class="mm-familia-nombre">${escapeHtml(f.nombre_familia)}</div>
+        <div class="mm-familia-codigo">Código: <code>${escapeHtml(f.codigo)}</code></div>
+        <span class="mm-status-pill ${f.activo ? 'activo' : 'pausado'}">${f.activo ? 'Activo' : 'Dado de baja'}</span>
+      </div>
+      <div class="mm-familia-row-actions">
+        <button type="button" class="mm-btn-outline mm-familia-edit-btn" data-id="${f.id}">Cambiar código</button>
+        <button type="button" class="mm-btn-outline mm-familia-toggle-btn" data-id="${f.id}" data-activo="${f.activo}">${f.activo ? 'Dar de baja' : 'Reactivar'}</button>
+      </div>
+    </div>`).join('');
+
+  wrap.querySelectorAll('.mm-familia-edit-btn').forEach((btn) => {
+    btn.addEventListener('click', () => abrirFormularioFamilia(btn.dataset.id));
+  });
+  wrap.querySelectorAll('.mm-familia-toggle-btn').forEach((btn) => {
+    btn.addEventListener('click', () => toggleEstadoFamilia(btn.dataset.id, btn.dataset.activo === 'true'));
+  });
+}
+
+async function toggleEstadoFamilia(id, activoActual) {
+  const nuevoValor = !activoActual;
+  const { ok, data } = await apiPost(`/api/admin/familias/${id}/estado`, { activo: nuevoValor });
+  if (!ok) {
+    showToast(data.error ?? 'No se pudo actualizar el acceso de la familia.');
+    return;
+  }
+  showToast(data.mensaje ?? 'Familia actualizada.');
+  await loadFamilias();
+}
+
+// --- Formulario de alta/edición (mismo <div> para ambos casos) ---
+const familiaForm = document.getElementById('familiaForm');
+const familiaFormError = document.getElementById('familiaFormError');
+
+function abrirFormularioNuevaFamilia() {
+  familiaEnEdicion = null;
+  document.getElementById('familiaFormIdOriginal').value = '';
+  document.getElementById('familiaFormNombre').value = '';
+  document.getElementById('familiaFormNombre').disabled = false;
+  document.getElementById('familiaFormCodigo').value = '';
+  familiaFormError.hidden = true;
+  familiaForm.hidden = false;
+  document.getElementById('familiaFormNombre').focus();
+}
+
+function abrirFormularioFamilia(id) {
+  const f = familias.find((x) => x.id === id);
+  if (!f) return;
+  familiaEnEdicion = id;
+  document.getElementById('familiaFormIdOriginal').value = id;
+  document.getElementById('familiaFormNombre').value = f.nombre_familia;
+  document.getElementById('familiaFormNombre').disabled = true; // esta pantalla solo permite cambiar el código
+  document.getElementById('familiaFormCodigo').value = '';
+  familiaFormError.hidden = true;
+  familiaForm.hidden = false;
+  document.getElementById('familiaFormCodigo').focus();
+}
+
+function cerrarFormularioFamilia() {
+  familiaForm.hidden = true;
+  familiaEnEdicion = null;
+}
+
+document.getElementById('newFamiliaBtn').addEventListener('click', abrirFormularioNuevaFamilia);
+document.getElementById('familiaFormCancelBtn').addEventListener('click', cerrarFormularioFamilia);
+
+document.getElementById('familiaFormSaveBtn').addEventListener('click', async () => {
+  const codigo = document.getElementById('familiaFormCodigo').value.trim();
+  const saveBtn = document.getElementById('familiaFormSaveBtn');
+
+  familiaFormError.hidden = true;
+  saveBtn.disabled = true;
+
+  let ok, data;
+  if (familiaEnEdicion) {
+    ({ ok, data } = await apiPut(`/api/admin/familias/${familiaEnEdicion}`, { codigo }));
+  } else {
+    const nombre_familia = document.getElementById('familiaFormNombre').value.trim();
+    ({ ok, data } = await apiPost('/api/admin/familias', { nombre_familia, codigo }));
+  }
+
+  saveBtn.disabled = false;
+
+  if (!ok) {
+    familiaFormError.textContent = data.error ?? 'No se pudo guardar la familia.';
+    familiaFormError.hidden = false;
+    return;
+  }
+
+  showToast(familiaEnEdicion ? 'Código actualizado.' : 'Familia creada — ya puede usar su código para ingresar.');
+  cerrarFormularioFamilia();
+  await loadFamilias();
+});
+
+// ---------------------------------------------------------------------------
+// Crear publicación directa (Etapa G) — mismo formulario completo que el
+// envío de una familia, pero se publica de inmediato (estado approved),
+// sin pasar por la cola. A diferencia del formulario público, acá "familia"
+// SÍ es un campo manual: no hay ninguna sesión de familia detrás de un alta
+// hecha por el admin, así que no hay de dónde tomarlo automáticamente.
+// ---------------------------------------------------------------------------
+const crearPubBackdrop = document.getElementById('crearPubBackdrop');
+const crearPubForm = document.getElementById('crearPubForm');
+const crearPubError = document.getElementById('crearPubError');
+let crearPubLogoUrl = null;
+let crearPubImagenUrl = null;
+
+document.getElementById('crearPubCategoria').innerHTML =
+  CATEGORIAS.map((c) => `<option value="${c.clave}">${escapeHtml(c.nombre)}</option>`).join('');
+
+function abrirCrearPubModal() {
+  crearPubForm.reset();
+  crearPubError.hidden = true;
+  crearPubLogoUrl = null;
+  crearPubImagenUrl = null;
+  document.getElementById('crearPubLogoPreview').hidden = true;
+  document.getElementById('crearPubPortadaPreview').hidden = true;
+  crearPubBackdrop.hidden = false;
+}
+
+function cerrarCrearPubModal() {
+  crearPubBackdrop.hidden = true;
+}
+
+document.getElementById('crearPublicacionBtn').addEventListener('click', abrirCrearPubModal);
+document.getElementById('crearPubCancelBtn').addEventListener('click', cerrarCrearPubModal);
+crearPubBackdrop.addEventListener('click', (e) => { if (e.target === crearPubBackdrop) cerrarCrearPubModal(); });
+
+async function subirArchivo(file, tipo) {
+  const form = new FormData();
+  form.append('imagen', file);
+  form.append('tipo', tipo);
+  const headers = {};
+  if (session) headers.Authorization = `Bearer ${session.access_token}`;
+  const res = await fetch('/api/uploads/imagen', { method: 'POST', headers, body: form });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'No se pudo subir la imagen');
+  return data.imagen_url;
+}
+
+document.getElementById('crearPubLogoInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    crearPubLogoUrl = await subirArchivo(file, 'logo');
+    const preview = document.getElementById('crearPubLogoPreview');
+    preview.style.backgroundImage = `url('${crearPubLogoUrl}')`;
+    preview.hidden = false;
+  } catch (err) {
+    crearPubError.textContent = err.message;
+    crearPubError.hidden = false;
+    e.target.value = '';
+  }
+});
+
+document.getElementById('crearPubPortadaInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    crearPubImagenUrl = await subirArchivo(file, 'portada');
+    const preview = document.getElementById('crearPubPortadaPreview');
+    preview.style.backgroundImage = `url('${crearPubImagenUrl}')`;
+    preview.hidden = false;
+  } catch (err) {
+    crearPubError.textContent = err.message;
+    crearPubError.hidden = false;
+    e.target.value = '';
+  }
+});
+
+crearPubForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  crearPubError.hidden = true;
+
+  if (!crearPubLogoUrl) {
+    crearPubError.textContent = 'El logo es obligatorio.';
+    crearPubError.hidden = false;
+    return;
+  }
+
+  const formData = new FormData(crearPubForm);
+  const saveBtn = document.getElementById('crearPubSaveBtn');
+  saveBtn.disabled = true;
+
+  const { ok, data } = await apiPost('/api/admin/publicaciones', {
+    nombre: formData.get('nombre'),
+    familia: formData.get('familia'),
+    categoria: formData.get('categoria'),
+    descripcion: formData.get('descripcion'),
+    whatsapp: formData.get('whatsapp'),
+    logo_url: crearPubLogoUrl,
+    imagen_url: crearPubImagenUrl,
+    sitio_web: formData.get('sitio_web'),
+    instagram: formData.get('instagram'),
+    direccion: formData.get('direccion'),
+  });
+
+  saveBtn.disabled = false;
+
+  if (!ok) {
+    crearPubError.textContent = data.error ?? 'No se pudo crear la publicación.';
+    crearPubError.hidden = false;
+    return;
+  }
+
+  cerrarCrearPubModal();
+  showToast('Publicación creada y publicada de inmediato.');
 });
 
 // ---------------------------------------------------------------------------

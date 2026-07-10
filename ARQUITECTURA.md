@@ -42,6 +42,14 @@ el panel sin re-emitir JWTs. `super_admin` no está atado a una academia.
    sponsors, estadísticas de vistas.
 5. **Panel de super-administrador (GIZA)** — academias y catálogo de módulos por cliente
    (incluido / adicional pago).
+6. **Configuración de la plataforma (super-admin, Etapa E)** — alta/edición/baja del
+   catálogo de módulos (antes fijo en el seed) y ajustes generales de la plataforma
+   (nombre, email de soporte), no por cliente.
+7. **Familias: códigos de acceso (panel admin)** — sistema de acceso simplificado para
+   familias, más simple que un login tradicional: el admin le asigna a cada familia un
+   nombre identificador y un código; la familia solo usa ese código (sin email visible)
+   para reaccionar a eventos o enviar su emprendimiento. Por detrás sigue siendo una
+   cuenta real de Supabase Auth (JWT, RLS) — ver §7.1.
 
 ## 5. Modelo de datos (`db/schema.sql`)
 
@@ -51,14 +59,30 @@ Todas con prefijo `vidriera_`:
   (antigüedad), `modulos_activos` (jsonb) desde el inicio, y
   `destacado_override_id` (FK a `vidriera_publicaciones`, nullable — anulación
   puntual del destacado rotativo, panel admin "Orden de la vidriera", Etapa C).
-- `vidriera_modulos` — catálogo estable de módulos (`incluido` = plan base vs. adicional).
+- `vidriera_modulos` — catálogo de módulos (`incluido` = plan base vs. adicional). Editable
+  desde el panel super-admin (Etapa E: alta/edición/baja); `activo` (boolean, default true)
+  es soft delete — dar de baja nunca borra la fila (rompería la FK de
+  `vidriera_academia_modulos.modulo_clave` para clientes que ya lo tengan activado), solo
+  deja de ofrecerse para nuevas activaciones.
 - `vidriera_academia_modulos` — activación relacional módulo↔academia.
+- `vidriera_config_plataforma` — ajustes generales de la plataforma (nombre, email de
+  soporte), no por cliente. Tabla singleton (`id smallint primary key default 1 check (id
+  = 1)`, una sola fila posible) — a diferencia de `vidriera_textos` (key/value) el set de
+  campos acá es chico y fijo, no un catálogo abierto.
 - `vidriera_perfiles` — mapea `auth.users` → rol + academia.
+- `vidriera_codigos_familia` — códigos de acceso de familias (panel admin, sección
+  "Familias"). `codigo` se guarda **en texto plano** a propósito, para que el admin lo
+  pueda visualizar después (no solo al crearlo) — ver §7.1 para la justificación
+  completa de esta decisión. `activo=false` (dar de baja) no borra la fila ni el usuario
+  de Auth, solo bloquea el acceso (ver §7.1). `es_demo` (Etapa H, default false) marca
+  cuentas de familia creadas solo para contenido de demostración.
 - `vidriera_categorias` — categorías de la vidriera (fijas, en tabla por extensibilidad).
 - `vidriera_publicaciones` — dato público del emprendimiento (+ `vistas`, `estado`,
   `familia`: nombre de la familia dueña, requerido, se muestra en la tarjeta;
   `orden`: integer nullable, orden manual en la grilla pública — `null` cae a
-  `created_at desc` como antes, Etapa C).
+  `created_at desc` como antes, Etapa C; `logo_url`/`sitio_web`/`instagram`/`direccion`,
+  todos opcionales, Etapa F; `es_demo`, boolean default false, Etapa H — marca
+  publicaciones de ejemplo, borrables de una sola vez desde el panel super-admin).
 - `vidriera_publicaciones_ediciones` — ediciones propuestas en revisión (jsonb `cambios`).
 - `vidriera_eventos` — calendario (+ `lugar`: opcional, texto libre).
 - `vidriera_evento_sponsors` — sponsors por evento (base del destacado rotativo).
@@ -103,10 +127,12 @@ src/
 scripts/
   crear-usuario.mjs      alta manual de un usuario real (cliente o admin; Auth + vidriera_perfiles)
   setup-storage.mjs      alta idempotente del bucket vidriera-imagenes
+  seed-demo.mjs          Etapa H: siembra 6 publicaciones + 1 familia de demostración
+                         (es_demo=true), borrables desde el panel super-admin
 db/
   schema.sql             DDL con prefijo vidriera_
   seed.sql               catálogo de módulos, categorías, academia de ejemplo
-  policies.sql           RLS completo para las 13 tablas
+  policies.sql           RLS completo para las tablas del proyecto
   migrations/            ALTERs incrementales sobre schema.sql ya aplicado (no
                           hay CLI/psql en este entorno para correrlas: se corren
                           a mano en el SQL Editor de Supabase y quedan documentadas acá)
@@ -171,7 +197,9 @@ los referencian, no hay valores de sombra hardcodeados sueltos por archivo.
   salta RLS — moderación y super-admin), `supabaseForToken` (propaga el JWT del
   usuario, respeta RLS — operaciones de familias/clientes autenticados) y
   `supabasePublic` (anon, sin token — rutas públicas de vidriera y calendario).
-- **RLS** activo en las 13 tablas vía `db/policies.sql`. Las operaciones con
+- **RLS** activo en las 16 tablas vía `db/policies.sql` (algunas, como
+  `vidriera_codigos_familia`, deliberadamente sin ninguna política — ver §7.1). Las
+  operaciones con
   `supabaseAdmin` filtran manualmente por `academia_id` en cada repo (service_role
   no aplica RLS, así que ese scope es la única barrera contra que un admin de una
   academia toque datos de otra).
@@ -186,6 +214,57 @@ los referencian, no hay valores de sombra hardcodeados sueltos por archivo.
   `sharp` (máx. 1600px de lado, WebP calidad 75) y devuelve la URL pública; esa URL
   es la que se guarda en `imagen_url` (plan free: 1 GB storage, 500 MB DB; volumen
   esperado ~100 familias / ~100 imágenes, cada una entre ~50 KB y 300 KB ya comprimida).
+
+### 7.1. Códigos de acceso de familias — decisión consciente de simplicidad sobre seguridad
+
+El sistema de "código de acceso" (panel admin, sección "Familias") reemplaza el login
+tradicional (email + contraseña) por un único campo: un código que el admin elige y le
+comparte a la familia por fuera de la app (WhatsApp, papel, etc.). Por detrás sigue
+siendo un login real contra Supabase Auth (JWT, RLS, mismo backend que ya validaba
+tokens) — lo que cambia es la interfaz, no el mecanismo de autenticación en sí.
+
+**Cómo funciona:**
+- Al crear una familia, el backend genera un email técnico invisible
+  (`<nombre-slugificado>-<8 hex>@familias.vidriera.internal`, dominio que no resuelve
+  DNS a propósito — solo existe para darle a Supabase Auth un email con formato válido)
+  y crea una cuenta real con `supabaseAdmin.auth.admin.createUser({ email, password:
+  codigo, email_confirm: true })`. Se vincula en `vidriera_perfiles` con `rol: 'cliente'`
+  y la academia del admin que la dio de alta — exactamente igual que
+  `scripts/crear-usuario.mjs`, solo que ahora también desde el panel.
+- El código se guarda además en `vidriera_codigos_familia.codigo` **en texto plano**.
+- Login público (`POST /api/auth/familia-login`, sin auth): recibe `{ codigo }`, busca
+  la fila por `codigo`, resuelve el email técnico del `user_id` asociado
+  (`supabaseAdmin.auth.admin.getUserById`) y hace el password-grant real contra
+  Supabase Auth (`email` resuelto + el mismo `codigo` como contraseña) desde el
+  backend. La respuesta al frontend nunca incluye el email técnico — solo
+  `access_token`/`expires_in`/`nombre_familia`, para que ese email siga siendo
+  invisible también en el cliente (DevTools, Network tab, etc.).
+
+**Por qué el código en texto plano es una decisión consciente, no un descuido:**
+- El backend necesita el valor real para poder autenticar contra Supabase Auth en
+  cada login (a diferencia de una contraseña con hash, que solo sirve para *verificar*,
+  acá hace falta el valor original para reenviarlo como password-grant).
+- El admin necesita poder **visualizarlo después** (no solo al crearlo) para
+  repetírselo a una familia que lo perdió, sin tener que resetearlo cada vez — ese es
+  el requisito de producto que motiva toda esta feature ("más simple que un login
+  tradicional").
+- **No protege datos sensibles críticos**: la cuenta de una familia solo puede crear/
+  editar su propia publicación de emprendimiento (texto+imagen ya públicos en la
+  vidriera de todas formas) y reaccionar/confirmar asistencia a eventos — no hay datos
+  financieros, de identidad, ni información privada detrás de este login. El "peor
+  caso" de una filtración de código es que alguien publique o reaccione en nombre de
+  esa familia, no un acceso a datos sensibles.
+- Mitigación: `vidriera_codigos_familia` tiene RLS habilitado con **cero políticas**
+  (ver `db/policies.sql`) — ni anon ni authenticated pueden leerla ni escribirla bajo
+  ninguna circunstancia, solo `service_role` (que el backend usa exclusivamente detrás
+  del panel de admin, protegido por `requireRole('admin')` y scoping por
+  `academia_id`). El código en texto plano nunca sale de esa tabla hacia el cliente
+  salvo en la respuesta de `GET /api/admin/familias`, que ya requiere sesión de admin.
+- "Dar de baja" refuerza esto con defensa en profundidad: además de `activo=false`,
+  banea la cuenta real de Supabase Auth (`ban_duration`) — un código dado de baja no
+  solo deja de resolverse en `/api/auth/familia-login`, tampoco podría autenticar si
+  alguien intentara pegarle directo a la API de Supabase Auth con el email técnico
+  (que de todas formas nunca se expuso).
 
 ## 8. Fuera de alcance (por ahora)
 

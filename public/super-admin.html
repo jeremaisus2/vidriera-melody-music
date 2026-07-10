@@ -33,35 +33,117 @@
   </div>
 </div>
 
-<div id="superAdminShell" hidden>
+<div id="superAdminShell" class="mm-app-shell" hidden>
 
-  <header class="mm-header">
-    <div class="mm-header-brand">
+  <aside class="mm-sidebar">
+    <div class="mm-sidebar-brand">
       <div class="mm-neutral-logo">
         <span></span><span></span><span></span><span></span>
       </div>
       <div>
         <div class="mm-wordmark">Panel de super-administrador</div>
-        <div class="mm-wordmark-sub">Gestión de clientes de la plataforma</div>
+        <div class="mm-wordmark-sub">Gestión de la plataforma</div>
       </div>
     </div>
-    <div class="mm-header-right">
-      <button type="button" class="mm-avatar" id="avatarBtn" aria-label="Mi cuenta">SA</button>
-    </div>
-  </header>
 
-  <section class="mm-admin-shell">
-    <div class="mm-queue-list">
-      <div class="mm-queue-header">
-        <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;">Clientes de la plataforma</div>
-        <div class="mm-queue-count" id="clientCountLabel"></div>
+    <div class="mm-sidebar-user">
+      <button type="button" class="mm-avatar" id="avatarBtn" aria-label="Mi cuenta">SA</button>
+      <div class="mm-sidebar-user-info">
+        <span class="mm-role-badge">Super admin</span>
+        <div class="mm-sidebar-user-email" id="userEmailLabel"></div>
       </div>
-      <div id="clientRows"></div>
     </div>
-    <div class="mm-preview-pane" id="clientDetail">
-      <p class="mm-empty">Seleccioná un cliente de la lista para ver sus módulos.</p>
-    </div>
-  </section>
+
+    <nav class="mm-sidebar-nav">
+      <button type="button" class="mm-sidebar-item active" id="navClientesBtn">Clientes de la plataforma</button>
+      <button type="button" class="mm-sidebar-item" id="navConfigBtn">Configuración de la plataforma</button>
+    </nav>
+  </aside>
+
+  <main class="mm-app-main">
+
+    <section id="tabClientes" class="mm-admin-shell">
+      <div class="mm-queue-list">
+        <div class="mm-queue-header">
+          <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;">Clientes de la plataforma</div>
+          <div class="mm-queue-count" id="clientCountLabel"></div>
+        </div>
+        <div id="clientRows"></div>
+      </div>
+      <div class="mm-preview-pane" id="clientDetail">
+        <p class="mm-empty">Seleccioná un cliente de la lista para ver sus módulos.</p>
+      </div>
+    </section>
+
+    <section id="tabConfig" class="mm-config-wrap" hidden>
+
+      <div class="mm-config-block">
+        <div class="mm-config-block-header">
+          <div>
+            <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Catálogo de módulos</div>
+            <div class="mm-stats-subtitle" style="margin-bottom:0;">Módulos disponibles para activar en las academias. Dar de baja no borra el módulo ni desactiva a los clientes que ya lo tengan — solo deja de ofrecerse para nuevas activaciones.</div>
+          </div>
+          <button type="button" class="mm-btn-fill" id="newModuloBtn">Nuevo módulo</button>
+        </div>
+
+        <div class="mm-modulo-form" id="moduloForm" hidden>
+          <input type="hidden" id="moduloFormClaveOriginal">
+          <div class="mm-modulo-form-row">
+            <label class="mm-field" id="moduloFormClaveField">
+              <span>Clave identificadora</span>
+              <input type="text" id="moduloFormClave" placeholder="ej: newsletter">
+            </label>
+            <label class="mm-field">
+              <span>Nombre</span>
+              <input type="text" id="moduloFormNombre" placeholder="ej: Newsletter mensual">
+            </label>
+          </div>
+          <label class="mm-field">
+            <span>Descripción (opcional)</span>
+            <input type="text" id="moduloFormDescripcion">
+          </label>
+          <label class="mm-field-checkbox">
+            <input type="checkbox" id="moduloFormIncluido">
+            <span>Incluido en el plan base (si no, es adicional pago)</span>
+          </label>
+          <p class="mm-form-error" id="moduloFormError" hidden></p>
+          <div class="mm-modulo-form-actions">
+            <button type="button" class="mm-btn-outline" id="moduloFormCancelBtn">Cancelar</button>
+            <button type="button" class="mm-btn-fill" id="moduloFormSaveBtn">Guardar</button>
+          </div>
+        </div>
+
+        <div id="modulosCatalogoList" class="mm-modulos-catalogo-list"></div>
+      </div>
+
+      <div class="mm-config-block">
+        <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Ajustes generales</div>
+        <div class="mm-stats-subtitle">Datos que aplican a toda la plataforma, no a un cliente en particular.</div>
+        <form id="configForm" class="mm-config-form">
+          <label class="mm-field">
+            <span>Nombre de la plataforma</span>
+            <input type="text" id="configNombrePlataforma" name="nombre_plataforma" required>
+          </label>
+          <label class="mm-field">
+            <span>Email de contacto de soporte</span>
+            <input type="email" id="configEmailSoporte" name="email_soporte">
+          </label>
+          <p class="mm-form-error" id="configFormError" hidden></p>
+          <div class="mm-config-form-actions">
+            <button type="submit" class="mm-btn-fill" id="configSaveBtn">Guardar ajustes</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="mm-config-block">
+        <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Datos de demostración</div>
+        <div class="mm-stats-subtitle">Publicaciones y familias de ejemplo (Etapa H), usadas para mostrar la plataforma con contenido real. Borrarlas quita también sus imágenes de Storage y las cuentas de acceso asociadas.</div>
+        <button type="button" class="mm-btn-danger" id="borrarDemoBtn">Borrar datos de demostración</button>
+      </div>
+
+    </section>
+
+  </main>
 
 </div>
 

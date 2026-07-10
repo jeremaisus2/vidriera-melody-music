@@ -1,7 +1,7 @@
 import * as publicacionesRepo from '../repos/publicaciones.repo.js';
 import * as eventosRepo from '../repos/eventos.repo.js';
 
-const CATEGORIAS_VALIDAS = [
+export const CATEGORIAS_VALIDAS = [
   'fotografia_video',
   'vestuario_arreglos',
   'instrumentos',
@@ -85,7 +85,7 @@ export async function destacadoRotativo(req, res, next) {
 
 export async function crearPublicacion(req, res, next) {
   try {
-    const { nombre, familia, categoria, descripcion, imagen_url, whatsapp } = req.body;
+    const { nombre, familia, categoria, descripcion, imagen_url, logo_url, sitio_web, instagram, direccion, whatsapp } = req.body;
 
     if (!nombre?.trim()) {
       return res.status(400).json({ error: 'El campo nombre es requerido' });
@@ -96,6 +96,9 @@ export async function crearPublicacion(req, res, next) {
     if (!CATEGORIAS_VALIDAS.includes(categoria)) {
       return res.status(400).json({ error: `Categoría inválida. Opciones: ${CATEGORIAS_VALIDAS.join(', ')}` });
     }
+    if (!logo_url) {
+      return res.status(400).json({ error: 'El logo es requerido' });
+    }
 
     const nueva = await publicacionesRepo.crearPublicacion(req.supabase, {
       academia_id: req.perfil.academia_id,
@@ -105,6 +108,10 @@ export async function crearPublicacion(req, res, next) {
       categoria,
       descripcion,
       imagen_url,
+      logo_url,
+      sitio_web,
+      instagram,
+      direccion,
       whatsapp,
     });
 
@@ -124,7 +131,7 @@ export async function proponerEdicion(req, res, next) {
       return res.status(403).json({ error: 'No tenés permisos para editar esta publicación' });
     }
 
-    const { nombre, familia, categoria, descripcion, imagen_url, whatsapp } = req.body;
+    const { nombre, familia, categoria, descripcion, imagen_url, logo_url, sitio_web, instagram, direccion, whatsapp } = req.body;
 
     if (categoria !== undefined && !CATEGORIAS_VALIDAS.includes(categoria)) {
       return res.status(400).json({ error: `Categoría inválida: "${categoria}"` });
@@ -139,6 +146,10 @@ export async function proponerEdicion(req, res, next) {
     if (categoria   !== undefined) cambios.categoria   = categoria;
     if (descripcion !== undefined) cambios.descripcion = descripcion;
     if (imagen_url  !== undefined) cambios.imagen_url  = imagen_url;
+    if (logo_url    !== undefined) cambios.logo_url    = logo_url;
+    if (sitio_web   !== undefined) cambios.sitio_web   = sitio_web;
+    if (instagram   !== undefined) cambios.instagram   = instagram;
+    if (direccion   !== undefined) cambios.direccion   = direccion;
     if (whatsapp    !== undefined) cambios.whatsapp    = whatsapp;
 
     if (Object.keys(cambios).length === 0) {

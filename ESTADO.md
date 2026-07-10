@@ -208,6 +208,509 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-10 #19 — Etapa H: contenido de demostración
+
+Seis negocios de ejemplo para poder mostrar la plataforma con contenido
+real, más un botón en super-admin para borrarlos todos de una sola vez
+cuando ya no hagan falta (antes de vender/entregar a un cliente real, por
+ejemplo).
+
+**Migración** (`db/migrations/008_contenido_demo.sql`, corrida por el
+usuario en el SQL Editor): `es_demo boolean not null default false` en
+`vidriera_publicaciones` **y** en `vidriera_codigos_familia`. Default false
+en ambas: el contenido real ya cargado queda automáticamente fuera del
+alcance de "borrar demo", sin backfill. Marcar también la familia (no solo
+las publicaciones) fue pedido explícito — permite identificar y borrar el
+paquete completo sin depender de inferir "qué cuenta es demo" a partir de
+qué publicaciones son demo.
+
+**Una sola familia demo dueña de las 6 publicaciones, con nombres de
+familia distintos por tarjeta**: en vez de crear 6 cuentas de acceso
+distintas, se creó una única familia demo (`familiasRepo.crearFamilia(...,
+{ es_demo: true })`, mismo sistema de código de acceso de siempre) que es
+el `owner_user_id` real de las 6 publicaciones. Pero cada publicación tiene
+su propio campo `familia` (texto libre, independiente del login desde la
+Etapa F) con un nombre distinto — "Familia Aguirre", "Familia Molina",
+etc. — para que la vidriera se vea con la diversidad real de una
+comunidad en vez de 6 tarjetas repitiendo "Familia Demo". El código de
+acceso de esa cuenta (`demo-<slug>-<timestamp>`) no está pensado para que
+nadie lo use para loguearse — es solo el mecanismo para tener un
+`owner_user_id` real y válido detrás de las 6 publicaciones.
+
+**Los 6 negocios** (rubros creíbles para una comunidad de familias de una
+academia de música en Bariloche, mismo contexto que el resto de los datos
+de ejemplo del proyecto): 2 en fotografía y video (fotógrafo + videomaker
+de recitales), 1 en vestuario y arreglos (costura/alquiler de vestuario),
+1 en instrumentos (luthería), 1 en servicios para eventos (catering) y 1
+en general (repostería) — cubre las 5 categorías existentes, "una o dos
+por categoría" tal como se pidió.
+
+**Imágenes reales, no solo linkeadas** (pedido explícito: "no solo
+linkearla externamente"): `scripts/seed-demo.mjs` descarga una imagen real
+de `picsum.photos/seed/<seed>/900/600` por negocio (URLs con seed fijo, no
+aleatorias — reproducible entre corridas) y la sube **dos veces** por el
+mismo flujo de Storage que ya usa la app real (`uploadsRepo.subirImagen`,
+el mismo repo que usa `POST /api/uploads/imagen`): una con `tipo: 'portada'`
+(→ `imagen_url`, resize "fit: inside") y otra con `tipo: 'logo'` (→
+`logo_url`, recorte cuadrado 400×400 "fit: cover", Etapa F) — así el logo
+obligatorio (Etapa G) también queda cubierto para las 6, aunque sea un
+recorte de la misma foto en vez de un logo de marca distinto (suficiente
+para contenido de demostración).
+
+**`scripts/seed-demo.mjs`** (nuevo, `npm run seed-demo -- [slug-academia]`,
+default "melody-music"): guarda simple de no-duplicado — si ya hay alguna
+publicación `es_demo=true`, avisa y no siembra de nuevo en vez de duplicar
+(hay que borrar primero desde el panel). Reusa
+`publicacionesRepo.crearPublicacionAprobada` (Etapa G, estado `approved`
+desde el insert, sin pasar por la cola) con `es_demo: true` — se extendió
+esa función y `familiasRepo.crearFamilia` para aceptar el flag `es_demo`
+(default `false`, no rompe a los llamadores existentes de
+`admin.controller.js` que no lo pasan).
+
+**Borrado masivo** (`src/repos/demo.repo.js`, nuevo — `POST
+/api/super-admin/demo/borrar`, alcance global, no por academia, porque el
+botón vive en "Configuración de la plataforma" del panel super-admin, no
+en una pantalla de un cliente puntual): lee primero los paths de Storage
+de **todas** las publicaciones `es_demo=true` (portada + logo), los borra
+del bucket, borra esas filas de `vidriera_publicaciones` de forma
+explícita, y por último borra el usuario de Supabase Auth de cada familia
+`es_demo=true` — por `on delete cascade` eso se lleva puestos
+`vidriera_perfiles` y la propia fila de `vidriera_codigos_familia` sin
+necesidad de un delete manual aparte sobre esas dos tablas. El botón
+(`.mm-btn-danger`, clase nueva — primera acción realmente irreversible de
+toda la app, se le dio un estilo visualmente distinto del resto de los
+outline) pide `confirm()` con el texto exacto pedido antes de llamar al
+endpoint.
+
+**Verificado end-to-end con Playwright contra Supabase real** (servidor
+HTTP real, cuenta `supergiza@bariloche.com` existente):
+- Las 6 publicaciones demo aparecen en la vidriera pública con su
+  categoría correcta (confirmado tanto por el tag de la tarjeta como
+  filtrando por cada pill de categoría) y con logo real visible.
+- Cancelar el diálogo de confirmación no borra nada (las 6 publicaciones
+  siguen intactas) — confirmado contra la base real, no solo la UI.
+- Confirmar el borrado devuelve los conteos esperados (6 publicaciones, 12
+  imágenes — 6 portadas + 6 logos —, 1 familia).
+- Tras el borrado: ninguna de las 6 sigue visible en la vidriera pública,
+  0 filas `es_demo=true` en ambas tablas, y 0 archivos en la carpeta de
+  Storage de la academia — sin residuos.
+- Sin errores de consola.
+- **El contenido demo se volvió a sembrar después de verificar el borrado**
+  (`npm run seed-demo` corrido una segunda vez): el objetivo de esta etapa
+  es que la plataforma quede mostrable con contenido real, así que el
+  estado final deliberado tiene las 6 publicaciones activas de nuevo — la
+  prueba de borrado fue solo eso, una prueba, no el estado final deseado.
+
+---
+
+### Sesión 2026-07-10 #18 — Etapa G: formulario real de envío + creación directa del admin
+
+Hasta esta sesión, crear una publicación solo era posible llamando a la API
+directamente — no existía ningún formulario en el frontend público
+(confirmado al investigar antes de tocar código, ver sesión anterior). Esta
+etapa cierra ese gap: la familia ya puede enviar su emprendimiento desde una
+UI real, ver el estado de sus envíos, y el admin puede publicar algo de
+inmediato sin pasar por la cola. También quedaron visibles en la vidriera
+pública los 3 campos que existían en la base desde la sesión anterior pero
+nunca se mostraban (`sitio_web`, `instagram`, `direccion`).
+
+**1. Logo obligatorio para publicaciones nuevas** (`publicaciones.controller.js`,
+`crearPublicacion`): a diferencia de la sesión anterior (donde se decidió
+`logo_url` nullable en la base, sin excepción, para no complicar el
+esquema), acá el pedido fue explícito y sin ambigüedad ("logo (obligatorio)"
+en el listado de campos del formulario) — se agregó la validación
+`if (!logo_url) return 400` en el controller. La columna sigue siendo
+nullable en la base (las publicaciones viejas sin logo no se rompen); la
+obligatoriedad es una regla de validación del backend para altas nuevas,
+no una constraint de esquema. En el frontend además el `<input type="file"
+required>` bloquea el submit nativamente antes de que el JS intervenga —
+confirmado con Playwright que el navegador impide enviar sin logo (no hace
+falta ni disparar el mensaje de error propio, aunque ese chequeo sigue
+estando como defensa en profundidad server-side).
+
+**2. `familia` ya no es un campo del formulario de la familia** — se toma
+automático de `session.nombre_familia` (conocido desde el login por código,
+sesión anterior). Antes de la Etapa F cada publicación pedía "familia" como
+texto libre porque no había ninguna identidad de cuenta confiable detrás
+del login; ahora que existe `vidriera_codigos_familia.nombre_familia` como
+identidad real, pedírselo de nuevo en el formulario sería redundante y
+además dejaría a la familia escribir cualquier nombre. **El admin sí sigue
+escribiendo "familia" a mano** en su formulario de alta directa: no hay
+ninguna sesión de familia real detrás de una publicación que el admin crea
+él mismo, así que no hay de dónde derivarlo automáticamente.
+
+**3. Endpoint de alta directa** (`POST /api/admin/publicaciones`, nuevo):
+`publicaciones.repo.crearPublicacionAprobada()` — mismo insert que
+`crearPublicacion` pero con `supabaseAdmin` (bypassa RLS, no pasa por las
+políticas de cliente) y `estado: 'approved'` desde el insert, sin cola.
+`owner_user_id` queda en el propio admin (columna NOT NULL, y no existe
+ninguna cuenta de familia real para un alta que el admin hace directamente)
+— no tiene ningún efecto funcional (no se usa para scoping de "mis
+publicaciones" del admin en ningún lado). Se extrajo `CATEGORIAS_VALIDAS`
+como export de `publicaciones.controller.js` para reusar la misma
+validación en `admin.controller.js` en vez de duplicar el array (había uno
+duplicado suelto en la sección de estadísticas de `admin.controller.js`,
+se aprovechó para unificarlo).
+
+**4. Frontend público — botón + formulario de envío** (`index.html`/
+`vidriera.js`): "Sumar mi emprendimiento" en el header, visible siempre. Si
+no hay sesión, encadena el login por código (mismo mecanismo
+`openLoginModal(afterLogin)` que ya usaban las reacciones) y recién
+después abre el formulario — confirmado con Playwright que el click sin
+sesión abre el login primero, y que tras loguearse el formulario se abre
+solo. Subida de imágenes: `subirArchivo(file, tipo)` llama a
+`POST /api/uploads/imagen` con el campo `tipo` ("logo"/"portada") agregado
+en la sesión anterior, muestra un preview cuadrado apenas termina de
+subir. El modal usa una clase nueva `.mm-modal-wide` (520px, con scroll
+interno) porque el modal original de login (340px) se queda corto para un
+formulario de 9 campos + 2 previews de imagen.
+
+**5. "Mis envíos" — primera interfaz visible para
+`GET /api/publicaciones/mias/listado`** (existía desde Etapa 1 pero sin
+ninguna UI): modal con pill de estado (`pending`/`approved`/`rejected`,
+clases `.mm-status-pill` nuevas en `styles.css` — antes solo existían en
+`admin.css`/`super-admin.css`, se agregaron acá porque `index.html` no
+carga esos archivos) y, si corresponde, un pill extra "Cambios en
+revisión" cuando `edicion_pendiente` no es null (ya lo devolvía el backend
+desde siempre, nunca se había consumido en ningún frontend).
+
+**6. Campos de contacto visibles en la tarjeta pública** (`vidriera.js`,
+`businessCardHtml`): `sitio_web`/`instagram` como íconos circulares
+discretos (🌐/📷) junto al botón de WhatsApp — solo se agregan si el dato
+existe, sin cambiar el footer de las publicaciones que no los tienen.
+`normalizarUrl()`/`instagramUrl()` aceptan tanto un handle corto
+("@usuario") como una URL completa ya pegada por la familia.  `direccion`
+se muestra como una línea de texto aparte (con 📍) arriba del footer, no
+como link — no se agregó un link a Google Maps por ser una dependencia
+externa implícita que no se pidió.
+
+**7. Panel de admin — "Crear publicación"** (`admin.html`/`admin.js`):
+botón nuevo en el header de "Publicaciones pendientes" (`.mm-queue-header-row`,
+clase nueva en `admin.css` para poner el botón a la derecha del título sin
+tocar el padding existente de `.mm-queue-header`), mismo formulario
+completo que el de la familia pero con "familia" como campo manual. Al
+guardar, la publicación aparece de inmediato en la vidriera pública — no
+en la cola de pendientes, que nunca la ve.
+
+**Verificado end-to-end con Playwright contra Supabase real** (servidor
+HTTP real; familia de prueba creada vía el flujo real
+`familiasRepo.crearFamilia`, admin de prueba descartable):
+- Click en "Sumar mi emprendimiento" sin sesión → abre el login por código
+  primero (no el formulario directamente).
+- Login con el código → el formulario de envío se abre automáticamente
+  (encadenado, sin volver a clickear nada).
+- Envío sin logo → bloqueado (campo `required` del navegador, sin llegar
+  a mandar ningún POST).
+- Envío completo (logo + portada + sitio + instagram + dirección + 
+  whatsapp) → queda `pending`; "Mis envíos" lo muestra como "En revisión"
+  con los datos reales.
+- El envío aparece en la cola de aprobación del admin real → aprobado.
+- El admin crea una publicación directa (con logo) → confirmado
+  `estado: 'approved'` en la respuesta de la API, sin pasar por la cola.
+- Recargando la vidriera pública real: la publicación aprobada muestra
+  logo, botón de WhatsApp con el número correcto, los 2 íconos de
+  sitio/Instagram, y la dirección como texto visible; la publicación
+  directa del admin aparece igual, de inmediato.
+- Sin errores de consola en toda la corrida.
+- Limpieza al final por id/path exacto (nunca por listado+filtro, para no
+  arriesgar borrar archivos reales de Melody Music con nombres
+  `logo-`/`portada-` parecidos): las 2 publicaciones de prueba, la fila de
+  `vidriera_codigos_familia` y su usuario de Auth, el admin descartable, y
+  los 3 archivos subidos a Storage por sus paths exactos — confirmado que
+  el bucket de Melody Music quedó en 0 archivos, igual que antes de la
+  corrida.
+
+---
+
+### Sesión 2026-07-10 #17 — Ficha de publicación ampliada: logo, sitio web, Instagram, dirección
+
+Cuatro campos nuevos en `vidriera_publicaciones`, todos opcionales (incluido
+`logo_url` — se aclaró explícitamente con el usuario antes de escribir la
+migración, porque el pedido original decía "todos opcionales excepto el
+logo" pero después pedía mostrarlo "si existe" y verificar el caso sin
+campos nuevos, lo cual contradice que sea obligatorio; se optó por
+opcional en los 4, sin bloquear esta sesión con una validación de
+"requerido en creación" que no se pidió con certeza).
+
+**Migración** (`db/migrations/007_ficha_publicacion.sql`, corrida por el
+usuario en el SQL Editor): `logo_url`, `sitio_web`, `instagram`,
+`direccion`, las 4 `text` nullable, sin backfill. Sin cambios en
+`policies.sql` (columnas nuevas en una tabla ya cubierta por RLS a nivel de
+fila, mismo criterio que las migraciones 001/003). Se actualizó también el
+comentario del jsonb `cambios` en `vidriera_publicaciones_ediciones`
+(`db/schema.sql`) para incluir las 4 claves nuevas como editables.
+
+**Backend — crear/editar publicación**: `publicaciones.repo.js`
+(`crearPublicacion`) y `publicaciones.controller.js` (`crearPublicacion` y
+`proponerEdicion`) desestructuran y pasan los 4 campos nuevos, mismo patrón
+que los campos existentes (`descripcion`/`imagen_url`/`whatsapp`) — sin
+validación de formato agregada (ni URL de `sitio_web` ni de `instagram`),
+consistente con que esos campos tampoco la tenían. `editarPublicacion` (el
+repo) no necesitó tocarse: ya era genérico, aplica cualquier `cambios` que
+arma el controller.
+
+**Upload de logo separado de portada** (`src/repos/uploads.repo.js` +
+`uploads.controller.js`): el mismo endpoint `POST /api/uploads/imagen` gana
+un campo de form-data opcional `tipo` (`'portada'` default | `'logo'`), en
+vez de crear un endpoint nuevo — es el mismo mecanismo de compresión
+(sharp → webp calidad 75) para ambos, solo cambia el `resize`: `portada`
+sigue con `fit: 'inside'` (conserva aspect ratio, máx 1600px), `logo` pasa
+a `fit: 'cover'` a un cuadrado fijo de 400×400 (recorta al centro en vez de
+dejar bordes, porque es un ícono, no una foto libre). El path en Storage
+ahora incluye el tipo (`{academia_id}/{tipo}-{uuid}.webp`) para poder
+distinguir archivos a simple vista en el bucket.
+
+**Frontend público** (`vidriera.js`/`styles.css`): `bizLogoHtml()` nuevo,
+separado de `bizImgHtml()` — devuelve string vacío si no hay `logo_url`,
+así que una publicación sin logo no cambia nada del resto del markup. El
+logo se posiciona `absolute` dentro de `.mm-biz-img` (esquina inferior
+izquierda, cuadrado de 40px con borde blanco) — deliberadamente sacado del
+flujo normal del layout: al no ocupar espacio en el flow, su ausencia no
+puede alterar la altura ni el resto de la tarjeta, evitando tener que
+mantener dos variantes de padding/alto según haya o no logo. No se
+mostraron `sitio_web`/`instagram`/`direccion` en la tarjeta (fuera de
+alcance explícito del pedido — hoy no existe ninguna vista de "ficha
+completa" de una publicación en el frontend, solo la tarjeta de grilla;
+esos 3 campos quedan disponibles vía API para cuando se construya esa
+vista).
+
+**No se tocó el preview de moderación del admin** (`admin.js`,
+`renderPreview()`): duplica el markup de la tarjeta de forma inline (no
+llama a `businessCardHtml`/`bizImgHtml` de `vidriera.js`, son archivos
+separados) y no se le agregó el logo — no estaba en el alcance pedido
+("modelo de tarjeta de la vidriera pública"), y no se rompe nada porque
+esa función nunca leyó campos que no conocía.
+
+**Verificado end-to-end con Playwright + llamadas reales a la API contra
+Supabase real** (sin frontend de creación de publicaciones — no existe
+ninguno hoy, confirmado al investigar antes de tocar código; se sembraron
+los datos vía `POST /api/publicaciones`/`POST /api/uploads/imagen` reales,
+no inserts directos):
+- Subida de un logo de prueba (800×500) con `tipo=logo` → confirmado que
+  quedó recortado a 400×400 exacto (fit cover), distinto del comportamiento
+  de portada.
+- Publicación creada con los 4 campos nuevos completos + logo → aprobada →
+  la tarjeta pública real muestra el `.mm-biz-logo` con la URL correcta.
+- Publicación creada sin ninguno de los 4 campos nuevos → aprobada → la
+  tarjeta pública no renderiza ningún `.mm-biz-logo` en el DOM (no un
+  elemento vacío u oculto, directamente no existe) y su altura de tarjeta
+  es consistente con la que sí tiene logo (layout no roto).
+- Sin errores de consola en la corrida.
+- Limpieza al final: las 2 publicaciones de prueba, el archivo de logo en
+  Storage, y los 2 usuarios de prueba (cliente + admin descartables,
+  creados para esta verificación en vez de usar cuentas reales) — confirmado
+  que `vidriera_publicaciones`/`vidriera_perfiles` no tienen residuos y la
+  carpeta de Melody Music en el bucket quedó en 0 archivos.
+
+---
+
+### Sesión 2026-07-09 #16 — Códigos de acceso para familias (panel admin, sección "Familias")
+
+Sistema de acceso simplificado para familias, pedido explícitamente "más
+simple que un login tradicional": el admin de la academia da de alta una
+familia con solo un nombre identificador y un código; la familia entra en
+el frontend público con SOLO ese código (sin email visible). Por detrás
+sigue siendo un login real contra Supabase Auth (mismo JWT/RLS de siempre),
+no un mecanismo paralelo — lo que cambia es la interfaz, no la autenticación.
+
+**Migración** (`db/migrations/006_familias_codigo.sql`, corrida por el
+usuario en el SQL Editor): tabla nueva `vidriera_codigos_familia`
+(`academia_id`, `user_id` único a `auth.users`, `nombre_familia`, `codigo`
+único, `activo`). RLS habilitado con **cero políticas** a propósito — ni
+siquiera una de SELECT — porque `codigo` se guarda en texto plano (ver
+más abajo); solo `service_role` puede tocar la tabla, mismo criterio que
+`vidriera_perfiles` pero llevado un paso más allá por la sensibilidad del
+contenido. Documentado en detalle en `ARQUITECTURA.md` §7.1.
+
+**Alta de familia** (`src/repos/familias.repo.js`, nuevo): genera un email
+técnico invisible (`<nombre-slugificado>-<8 hex>@familias.vidriera.internal`,
+dominio que no resuelve DNS a propósito) y crea la cuenta real con
+`supabaseAdmin.auth.admin.createUser({ email, password: codigo,
+email_confirm: true })` — mismo mecanismo que ya usaba
+`scripts/crear-usuario.mjs`, ahora también accesible desde el panel. Se
+vincula en `vidriera_perfiles` con `rol: 'cliente'` y la academia del admin
+que la da de alta. El código elegido por el admin se guarda además en
+`vidriera_codigos_familia.codigo` en texto plano — **decisión consciente**:
+el admin necesita poder visualizarlo después (no solo al crearlo) para
+repetírselo a una familia que lo perdió, y el backend necesita el valor
+original (no un hash) para poder reenviarlo como password-grant en cada
+login. Aceptable porque esta cuenta no protege datos sensibles críticos
+(solo su propia publicación de emprendimiento, ya pública, y reacciones a
+eventos) — ver la justificación completa en `ARQUITECTURA.md` §7.1.
+
+**Editar código**: `supabaseAdmin.auth.admin.updateUserById(user_id,
+{ password })` + update de la fila. El nombre identificador NO se edita
+desde esta pantalla (solo el código) — el formulario de "Cambiar código"
+deshabilita el campo nombre, mismo patrón que la clave de módulo
+inmutable en Etapa E.
+
+**Dar de baja** (soft delete, no borra fila ni usuario ni publicaciones):
+además de `activo=false`, banea la cuenta real de Supabase Auth
+(`ban_duration: '876000h'`, ~100 años — Supabase no tiene ban permanente
+nativo) como defensa en profundidad, para que ni siquiera un intento
+directo contra la API de Supabase Auth funcione con el código viejo.
+Reactivar hace lo simétrico (`ban_duration: 'none'`).
+
+**Login público por código** (`POST /api/auth/familia-login`, nuevo router
+`src/routes/auth.routes.js` — sin `requireAuth`, es el único endpoint
+público de autenticación del proyecto): recibe `{ codigo }`, busca la fila
+por `codigo` con `activo=true`, resuelve el email técnico del `user_id`
+(`supabaseAdmin.auth.admin.getUserById`) y hace el password-grant real
+contra Supabase Auth desde el backend (mismo endpoint REST
+`/auth/v1/token?grant_type=password` que antes llamaba el frontend
+directo). La respuesta **nunca incluye el email técnico** — solo
+`access_token`/`expires_in`/`nombre_familia` — para que ese email siga
+invisible también del lado del cliente (Network tab incluido). Es
+instantáneo y no requiere ninguna aprobación del admin en este paso (la
+aprobación ya ocurrió al crear el código, y vuelve a ocurrir después, al
+moderar la publicación que la familia envíe) — pedido explícito.
+
+**Frontend público** (`index.html`/`vidriera.js`): el modal de login pasa
+de 2 campos (email + contraseña) a 1 solo campo ("Código de acceso",
+`type="password"` para no mostrarlo en pantalla). `signIn()` ya no habla
+directo con Supabase Auth — llama a `/api/auth/familia-login` y guarda
+`{ access_token, expires_at, nombre_familia }` en `localStorage` (sin
+`user.email`, que ya no viaja al cliente). El avatar ahora muestra las
+iniciales/tooltip del **nombre de familia**, no del email — antes mostraba
+`session.user.email`, que hubiera expuesto el email técnico invisible si
+no se corregía. Se sacó `<script src="/config.js">` de `index.html`: ya no
+hace falta `supabaseUrl`/`supabaseAnonKey` en el cliente para este login
+(admin.html y super-admin.html siguen usándolo para su propio login real de
+staff, sin cambios).
+
+**Frontend admin** (`admin.html`/`admin.css`/`admin.js`): nueva sección
+"Familias" en la barra lateral (5to ítem), mismo patrón que las anteriores.
+Listado con nombre, código **siempre visible** (no solo al crear, pedido
+explícito — `<code>` con fondo tenue), pill de estado (reusa
+`.mm-status-pill.activo/.pausado`, agregadas a `admin.css` — antes solo
+existían en `super-admin.css`), botones "Cambiar código" y "Dar de baja"/
+"Reactivar". Formulario único de alta/edición (mismo patrón que el
+catálogo de módulos de Etapa E): en alta pide nombre + código, en edición
+el nombre queda deshabilitado.
+
+**Verificado end-to-end con Playwright contra Supabase real** (servidor
+HTTP real; se creó un admin de prueba descartable en vez de usar
+`giza@bariloche.com` porque su contraseña real no estaba documentada en
+esta bitácora):
+- Admin crea una familia ("Familia Test E2E" / código `testcodigoe2e`)
+  desde el panel — confirmado que aparece en el listado con el código
+  visible y estado "Activo".
+- En el flujo público: el modal de login confirmado con un único campo
+  `codigo` (cero campos de tipo email en el DOM); login con ese código
+  devuelve 200 e instantáneamente autenticado, **sin ningún paso de
+  aprobación** — confirmado que la respuesta JSON no contiene el email
+  técnico ni el dominio `@familias.vidriera.internal`; el avatar muestra
+  "Familia Test E2E" (no el email); la sesión persiste después de recargar
+  la página completa (no solo en memoria).
+- Cambio de código: el código viejo pasa a devolver 401 inmediatamente, el
+  nuevo código funciona (200) — confirmado contra el backend real, no solo
+  la UI.
+- Dar de baja: la familia sigue visible en el listado (pill "Dado de
+  baja"), pero el código ya no autentica (401) — confirma que "dar de baja"
+  bloquea el acceso real, no solo cambia una etiqueta visual.
+- Sin errores de consola no esperados (los dos 401 de la consola del
+  navegador son de los intentos de login deliberadamente fallidos que
+  dispara el propio test, no un bug).
+- Datos de prueba borrados al final: la fila de `vidriera_codigos_familia`,
+  su usuario de Supabase Auth, y el admin de prueba — confirmado que
+  `vidriera_codigos_familia` quedó en 0 filas y los perfiles de Melody
+  Music volvieron a tener solo al admin real (`giza`).
+
+---
+
+### Sesión 2026-07-09 #15 — Etapa E: configuración de la plataforma (panel super-admin)
+
+Última pantalla nueva del plan: gestión del catálogo de módulos (antes fijo
+en el seed) y ajustes generales de la plataforma, ambos desde
+`super-admin.html`.
+
+**Migración de layout previa al contenido nuevo**: `super-admin.html` no
+tenía barra lateral (a diferencia de `admin.html` desde la Etapa B) — era un
+header + vista única de clientes. Se migró al mismo patrón `mm-app-shell`/
+`mm-sidebar`/`mm-app-main` de `admin.html` (reusando las clases de
+`admin.css` tal cual, sin duplicarlas) para poder sumar "Configuración de la
+plataforma" como segundo ítem de nav junto a "Clientes de la plataforma"
+(el contenido de clientes existente se movió dentro de `<section
+id="tabClientes">` sin tocar su HTML/JS interno). Decisión confirmada con
+el usuario antes de tocar el layout, dado que no era self-evident cuál era
+"el mismo patrón de navegación" pedido si la pantalla no tenía ninguno
+todavía.
+
+**Catálogo de módulos — soft delete, no borrado físico** (pedido explícito):
+- `db/migrations/005_config_plataforma.sql` (corrida por el usuario en el
+  SQL Editor): `vidriera_modulos` gana `activo boolean not null default
+  true`. "Dar de baja" nunca borra la fila — evitaría romper la FK de
+  `vidriera_academia_modulos.modulo_clave` para clientes que ya lo tengan
+  activado — solo pone `activo=false`.
+- `getModulosAcademia()` (`superadmin.repo.js`) filtra el catálogo que se
+  ofrece a cada cliente: un módulo dado de baja deja de listarse para
+  activarlo de nuevo, **salvo que esa academia puntual ya lo tenga
+  activo=true** (si no, un cliente con el módulo prendido lo vería
+  desaparecer sin poder apagarlo). `setModulosAcademia()` tiene la misma
+  regla como defensa en profundidad server-side: rechaza `{clave: true}`
+  para un módulo dado de baja que esa academia todavía no tenía activo
+  (`invalidas`), pero sigue permitiendo `{clave: false}` para apagar uno que
+  ya estaba prendido.
+- `GET /api/super-admin/modulos` sigue devolviendo solo módulos vigentes por
+  default (no cambia el contrato que ya consumía la lista de clientes para
+  el conteo "N de M"); la pantalla de gestión del catálogo pide
+  `?incluir_inactivos=true` para poder ver y reactivar los dados de baja.
+- Nuevos endpoints: `POST /api/super-admin/modulos` (alta — valida `clave`
+  con el mismo regex que el slug de academia, `nombre`, `incluido`
+  booleano), `PUT /api/super-admin/modulos/:clave` (edita nombre/
+  descripción/incluido; **la clave no se edita**, es la PK referenciada por
+  `academia_modulos`), `POST /api/super-admin/modulos/:clave/estado` (alta/
+  baja).
+- Frontend: formulario único (alta y edición comparten el mismo `<div>`,
+  toggleado por `moduloEnEdicion`) con el campo clave deshabilitado en modo
+  edición. Reutiliza `.mm-status-pill`/`.mm-plan-badge` ya existentes para
+  los estados visuales.
+
+**Ajustes generales — tabla singleton, no key/value**: a diferencia de
+`vidriera_textos` (catálogo abierto de claves), acá el set de campos es
+chico y fijo (nombre de la plataforma, email de soporte), así que
+`vidriera_config_plataforma` tiene una sola fila posible (`id smallint
+primary key default 1 check (id = 1)`) en vez de una fila por clave. Sin
+scoping por academia: son ajustes de la plataforma entera, no por cliente.
+RLS nueva (tabla nueva): solo `super_admin` puede leer/escribir (defensa en
+profundidad — el backend siempre usa `service_role` acá).
+
+**Bug real encontrado y corregido durante la verificación** (no la misma
+clase que el bug de `[hidden]`, aunque se aplicó esa regla proactivamente
+sin problemas en `.mm-config-wrap`): al volver de "Configuración de la
+plataforma" a "Clientes de la plataforma", el panel de detalle del cliente
+seleccionado no se refrescaba — un módulo recién creado/editado en la otra
+sección no aparecía hasta recargar toda la página, porque el click del nav
+solo togglea qué `<section>` se ve (`setActiveSection`), sin refetch.
+Corregido agregando `loadClientDetail()` al handler de `navClientesBtn`
+(mismo criterio que ya usaba `navStatsBtn`/`navTextosBtn` en `admin.js` para
+sus propias secciones). Encontrado con un test de Playwright que creaba un
+módulo y volvía a la lista de clientes esperando verlo — sin el fix, el
+`waitForResponse` del refetch nunca llegaba a dispararse.
+
+**Verificado end-to-end con Playwright contra Supabase real** (servidor
+HTTP real, cuenta `supergiza@bariloche.com` existente): login super_admin
+entra y la sección "Clientes de la plataforma" sigue funcionando igual que
+antes (regresión); navegación a "Configuración de la plataforma"; alta de
+un módulo nuevo (`newsletter-test-e2e`, adicional pago) confirmada en la
+fila del catálogo; edición del mismo módulo (nombre + pasa a incluido en
+plan base) persistida y reflejada; **el módulo nuevo aparece disponible
+para activar/desactivar en la pantalla de "Melody Music"** (el requisito
+central de esta etapa) sin recargar la página; toggle de activación/
+desactivación confirmado funcionando sobre el módulo nuevo; dado de baja
+del módulo confirmado (pill "Dado de baja" en el catálogo) y confirmado que
+deja de ofrecerse en la pantalla de cliente que nunca lo había activado;
+edición de ajustes generales (nombre de plataforma + email de soporte)
+confirmada persistida **después de recargar la página completa** (no solo
+en memoria del formulario). Sin errores de consola en toda la corrida.
+Datos de prueba borrados al final por clave/id exacto (`vidriera_modulos`,
+`vidriera_academia_modulos`) y los ajustes generales devueltos a su valor
+original (`GIZA`, sin email de soporte) — confirmado que Supabase quedó en
+el mismo estado en que se encontró, salvo la migración 005 en sí (permanente,
+aplicada por el usuario).
+
+---
+
 ### Sesión 2026-07-09 #14 — Etapa D: textos fijos editables ("Textos de la página")
 
 Construida la última sección que quedaba en la barra lateral del panel de

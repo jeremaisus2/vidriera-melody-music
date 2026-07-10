@@ -79,7 +79,7 @@ export async function incrementarVistas(id) {
   if (error) throw error;
 }
 
-export async function crearPublicacion(supabase, { academia_id, owner_user_id, nombre, familia, categoria, descripcion, imagen_url, whatsapp }) {
+export async function crearPublicacion(supabase, { academia_id, owner_user_id, nombre, familia, categoria, descripcion, imagen_url, logo_url, sitio_web, instagram, direccion, whatsapp }) {
   const { data, error } = await supabase
     .from('vidriera_publicaciones')
     .insert({
@@ -90,8 +90,42 @@ export async function crearPublicacion(supabase, { academia_id, owner_user_id, n
       categoria,
       descripcion: descripcion ?? null,
       imagen_url: imagen_url ?? null,
+      logo_url: logo_url ?? null,
+      sitio_web: sitio_web ?? null,
+      instagram: instagram ?? null,
+      direccion: direccion ?? null,
       whatsapp: whatsapp ?? null,
       estado: 'pending',
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Alta directa desde el panel de admin (Etapa G): igual que crearPublicacion
+ * pero con supabaseAdmin (service_role, sin pasar por RLS del cliente) y
+ * `estado: 'approved'` desde el inicio — no pasa por la cola de moderación.
+ */
+export async function crearPublicacionAprobada({ academia_id, owner_user_id, nombre, familia, categoria, descripcion, imagen_url, logo_url, sitio_web, instagram, direccion, whatsapp, es_demo = false }) {
+  const { data, error } = await supabaseAdmin
+    .from('vidriera_publicaciones')
+    .insert({
+      academia_id,
+      owner_user_id,
+      nombre,
+      familia,
+      categoria,
+      descripcion: descripcion ?? null,
+      imagen_url: imagen_url ?? null,
+      logo_url: logo_url ?? null,
+      sitio_web: sitio_web ?? null,
+      instagram: instagram ?? null,
+      direccion: direccion ?? null,
+      whatsapp: whatsapp ?? null,
+      estado: 'approved',
+      es_demo,
     })
     .select()
     .single();

@@ -56,6 +56,7 @@
       <button type="button" class="mm-sidebar-item" id="navStatsBtn">Estadísticas de vistas</button>
       <button type="button" class="mm-sidebar-item" id="navOrdenBtn">Orden de la vidriera</button>
       <button type="button" class="mm-sidebar-item" id="navTextosBtn">Textos de la página</button>
+      <button type="button" class="mm-sidebar-item" id="navFamiliasBtn">Familias</button>
     </nav>
   </aside>
 
@@ -63,8 +64,13 @@
     <section id="tabQueue" class="mm-admin-shell">
       <div class="mm-queue-list">
         <div class="mm-queue-header">
-          <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;">Publicaciones pendientes</div>
-          <div class="mm-queue-count" id="pendingCountLabel"></div>
+          <div class="mm-queue-header-row">
+            <div>
+              <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;">Publicaciones pendientes</div>
+              <div class="mm-queue-count" id="pendingCountLabel"></div>
+            </div>
+            <button type="button" class="mm-btn-fill" id="crearPublicacionBtn">Crear publicación</button>
+          </div>
         </div>
         <div id="queueRows"></div>
       </div>
@@ -104,8 +110,93 @@
       <div class="mm-stats-subtitle">Títulos y subtítulos fijos de la vidriera pública. Los cambios se ven ahí apenas se guardan.</div>
       <div id="textosList" class="mm-textos-list"></div>
     </section>
+
+    <section id="tabFamilias" class="mm-familias-wrap" hidden>
+      <div class="mm-orden-header">
+        <div>
+          <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Familias</div>
+          <div class="mm-stats-subtitle" style="margin-bottom:0;">Códigos de acceso para que cada familia envíe su emprendimiento (sin login tradicional). Dar de baja no borra sus publicaciones existentes.</div>
+        </div>
+        <button type="button" class="mm-btn-fill" id="newFamiliaBtn">Nueva familia</button>
+      </div>
+
+      <div class="mm-familia-form" id="familiaForm" hidden>
+        <input type="hidden" id="familiaFormIdOriginal">
+        <label class="mm-field" id="familiaFormNombreField">
+          <span>Nombre identificador</span>
+          <input type="text" id="familiaFormNombre" placeholder="ej: Familia Gómez">
+        </label>
+        <label class="mm-field">
+          <span>Contraseña / código de acceso</span>
+          <input type="text" id="familiaFormCodigo" placeholder="ej: gomezmelody">
+        </label>
+        <p class="mm-form-error" id="familiaFormError" hidden></p>
+        <div class="mm-familia-form-actions">
+          <button type="button" class="mm-btn-outline" id="familiaFormCancelBtn">Cancelar</button>
+          <button type="button" class="mm-btn-fill" id="familiaFormSaveBtn">Guardar</button>
+        </div>
+      </div>
+
+      <div id="familiasList" class="mm-familias-list"></div>
+    </section>
   </main>
 
+</div>
+
+<div class="mm-modal-backdrop" id="crearPubBackdrop" hidden>
+  <div class="mm-modal mm-modal-wide">
+    <div class="mm-modal-title">Crear publicación</div>
+    <div class="mm-modal-sub">Se publica de inmediato en la vidriera pública, sin pasar por la cola de aprobación.</div>
+    <form id="crearPubForm">
+      <label class="mm-field">
+        <span>Nombre del emprendimiento</span>
+        <input type="text" name="nombre" required>
+      </label>
+      <label class="mm-field">
+        <span>Nombre de la familia</span>
+        <input type="text" name="familia" required placeholder="ej: Familia Gómez">
+      </label>
+      <label class="mm-field">
+        <span>Categoría</span>
+        <select name="categoria" id="crearPubCategoria" required></select>
+      </label>
+      <label class="mm-field">
+        <span>Descripción</span>
+        <textarea name="descripcion" rows="3"></textarea>
+      </label>
+      <label class="mm-field">
+        <span>WhatsApp (opcional)</span>
+        <input type="text" name="whatsapp" placeholder="5491122334455">
+      </label>
+      <label class="mm-field">
+        <span>Logo (obligatorio, ícono cuadrado)</span>
+        <input type="file" accept="image/*" id="crearPubLogoInput" required>
+        <div class="mm-upload-preview" id="crearPubLogoPreview" hidden></div>
+      </label>
+      <label class="mm-field">
+        <span>Imagen de portada (opcional)</span>
+        <input type="file" accept="image/*" id="crearPubPortadaInput">
+        <div class="mm-upload-preview" id="crearPubPortadaPreview" hidden></div>
+      </label>
+      <label class="mm-field">
+        <span>Sitio web (opcional)</span>
+        <input type="text" name="sitio_web" placeholder="https://...">
+      </label>
+      <label class="mm-field">
+        <span>Instagram (opcional)</span>
+        <input type="text" name="instagram" placeholder="@usuario">
+      </label>
+      <label class="mm-field">
+        <span>Dirección (opcional)</span>
+        <input type="text" name="direccion">
+      </label>
+      <p class="mm-form-error" id="crearPubError" hidden></p>
+      <div class="mm-modal-actions">
+        <button type="button" class="mm-btn-outline" id="crearPubCancelBtn">Cancelar</button>
+        <button type="submit" class="mm-btn-fill" id="crearPubSaveBtn">Crear y publicar</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <div class="mm-toast" id="toast" hidden></div>

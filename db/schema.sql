@@ -28,7 +28,10 @@ create table if not exists vidriera_modulos (
   nombre        text not null,
   descripcion   text,
   incluido      boolean not null default false, -- true = plan base; false = adicional pago
-  orden         int not null default 0
+  orden         int not null default 0,
+  activo        boolean not null default true  -- false = dado de baja (Etapa E). No se borra la
+                                                -- fila para no romper la FK de academia_modulos
+                                                -- de clientes que ya lo tengan activado.
 );
 
 -- Activación de módulos por academia (tabla relacional, complementa modulos_activos)
@@ -75,8 +78,13 @@ create table if not exists vidriera_publicaciones (
   familia        text not null,   -- nombre de la familia dueña del emprendimiento (ej. "Familia Restrepo")
   categoria      text not null references vidriera_categorias(clave),
   descripcion    text,
-  imagen_url     text,
+  imagen_url     text,             -- imagen de portada de la tarjeta
+  logo_url       text,             -- ícono/logo cuadrado del negocio, separado de la portada (opcional)
+  sitio_web      text,             -- opcional
+  instagram      text,             -- opcional
+  direccion      text,             -- opcional
   whatsapp       text,
+  es_demo        boolean not null default false, -- contenido de demostración (Etapa H) — borrable de una vez
   estado         text not null default 'pending' check (estado in ('pending', 'approved', 'rejected')),
   motivo_rechazo text,
   vistas         bigint not null default 0,
@@ -107,7 +115,7 @@ create table if not exists vidriera_publicaciones_ediciones (
   id             uuid primary key default gen_random_uuid(),
   publicacion_id uuid not null references vidriera_publicaciones(id) on delete cascade,
   autor_user_id  uuid not null references auth.users(id) on delete cascade,
-  cambios        jsonb not null,   -- { nombre, categoria, descripcion, imagen_url, whatsapp }
+  cambios        jsonb not null,   -- { nombre, categoria, descripcion, imagen_url, logo_url, sitio_web, instagram, direccion, whatsapp }
   estado         text not null default 'pending' check (estado in ('pending', 'approved', 'rejected')),
   motivo_rechazo text,
   created_at     timestamptz not null default now(),
@@ -199,6 +207,46 @@ create table if not exists vidriera_textos (
   updated_at   timestamptz not null default now(),
   unique (academia_id, clave)
 );
+
+-- ---------------------------------------------------------------------
+-- Configuración general de la plataforma (panel super-admin, Etapa E)
+-- Ajustes globales, no por cliente. Patrón singleton: una sola fila
+-- posible (id fijo en 1, con check), a diferencia de vidriera_textos
+-- (key/value) porque acá el set de campos es chico y fijo.
+-- ---------------------------------------------------------------------
+create table if not exists vidriera_config_plataforma (
+  id                smallint primary key default 1 check (id = 1),
+  nombre_plataforma text not null default 'GIZA',
+  email_soporte     text,
+  updated_at        timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------
+-- Códigos de acceso de familias (panel admin, sección "Familias")
+-- Reemplaza el alta 100% manual por script: el admin elige un nombre
+-- identificador y un código; el backend crea por detrás una cuenta real
+-- de Supabase Auth con un email técnico invisible para el usuario
+-- (ver src/repos/familias.repo.js). `codigo` se guarda EN TEXTO PLANO a
+-- propósito para que el admin lo pueda visualizar después, no solo al
+-- crearlo — decisión consciente de simplicidad sobre seguridad, ver
+-- ARQUITECTURA.md. `activo=false` (dar de baja) no borra la fila ni el
+-- usuario de Auth (las publicaciones de la familia quedan intactas);
+-- también banea la cuenta real en Supabase Auth como defensa en
+-- profundidad.
+-- ---------------------------------------------------------------------
+create table if not exists vidriera_codigos_familia (
+  id             uuid primary key default gen_random_uuid(),
+  academia_id    uuid not null references vidriera_academias(id) on delete cascade,
+  user_id        uuid not null unique references auth.users(id) on delete cascade,
+  nombre_familia text not null,
+  codigo         text not null unique,
+  activo         boolean not null default true,
+  es_demo        boolean not null default false, -- contenido de demostración (Etapa H) — borrable de una vez
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+create index if not exists idx_vidriera_codigos_familia_academia on vidriera_codigos_familia(academia_id);
 
 -- ---------------------------------------------------------------------
 -- Nota sobre RLS:

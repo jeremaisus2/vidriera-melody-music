@@ -25,6 +25,8 @@
       <a href="#testimonios">Testimonios</a>
       <a href="/admin.html">Admin</a>
     </nav>
+    <button type="button" class="mm-btn-outline" id="misEnviosBtn">Mis envíos</button>
+    <button type="button" class="mm-btn-fill" id="sumarEmprendimientoBtn">Sumar mi emprendimiento</button>
     <button type="button" class="mm-avatar" id="avatarBtn" aria-label="Mi cuenta">?</button>
   </div>
 </header>
@@ -75,16 +77,12 @@
 
 <div class="mm-modal-backdrop" id="loginBackdrop" hidden>
   <div class="mm-modal">
-    <div class="mm-modal-title">Iniciá sesión</div>
-    <div class="mm-modal-sub">Necesitás una cuenta de familia para reaccionar a los eventos.</div>
+    <div class="mm-modal-title">Ingresá con tu código de familia</div>
+    <div class="mm-modal-sub">Usá el código que te compartió la academia para reaccionar a los eventos o enviar tu emprendimiento.</div>
     <form id="loginForm">
       <label class="mm-field">
-        <span>Email</span>
-        <input type="email" name="email" required autocomplete="username">
-      </label>
-      <label class="mm-field">
-        <span>Contraseña</span>
-        <input type="password" name="password" required autocomplete="current-password">
+        <span>Código de acceso</span>
+        <input type="password" name="codigo" required autocomplete="current-password">
       </label>
       <p class="mm-form-error" id="loginError" hidden></p>
       <div class="mm-modal-actions">
@@ -95,9 +93,71 @@
   </div>
 </div>
 
+<div class="mm-modal-backdrop" id="submitBackdrop" hidden>
+  <div class="mm-modal mm-modal-wide">
+    <div class="mm-modal-title">Sumar mi emprendimiento</div>
+    <div class="mm-modal-sub">Se envía a revisión del admin de la academia antes de publicarse en la vidriera.</div>
+    <form id="submitForm">
+      <label class="mm-field">
+        <span>Nombre del emprendimiento</span>
+        <input type="text" name="nombre" required>
+      </label>
+      <label class="mm-field">
+        <span>Categoría</span>
+        <select name="categoria" id="submitCategoria" required></select>
+      </label>
+      <label class="mm-field">
+        <span>Descripción</span>
+        <textarea name="descripcion" rows="3"></textarea>
+      </label>
+      <label class="mm-field">
+        <span>WhatsApp (opcional)</span>
+        <input type="text" name="whatsapp" placeholder="5491122334455">
+      </label>
+      <label class="mm-field">
+        <span>Logo (obligatorio, ícono cuadrado)</span>
+        <input type="file" accept="image/*" id="submitLogoInput" required>
+        <div class="mm-upload-preview" id="submitLogoPreview" hidden></div>
+      </label>
+      <label class="mm-field">
+        <span>Imagen de portada (opcional)</span>
+        <input type="file" accept="image/*" id="submitPortadaInput">
+        <div class="mm-upload-preview" id="submitPortadaPreview" hidden></div>
+      </label>
+      <label class="mm-field">
+        <span>Sitio web (opcional)</span>
+        <input type="text" name="sitio_web" placeholder="https://...">
+      </label>
+      <label class="mm-field">
+        <span>Instagram (opcional)</span>
+        <input type="text" name="instagram" placeholder="@usuario">
+      </label>
+      <label class="mm-field">
+        <span>Dirección (opcional)</span>
+        <input type="text" name="direccion">
+      </label>
+      <p class="mm-form-error" id="submitError" hidden></p>
+      <div class="mm-modal-actions">
+        <button type="button" class="mm-btn-outline" id="submitCancel">Cancelar</button>
+        <button type="submit" class="mm-btn-fill" id="submitSaveBtn">Enviar a revisión</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="mm-modal-backdrop" id="misEnviosBackdrop" hidden>
+  <div class="mm-modal mm-modal-wide">
+    <div class="mm-modal-title">Mis envíos</div>
+    <div class="mm-modal-sub">Estado de los emprendimientos que enviaste.</div>
+    <div id="misEnviosList"></div>
+    <div class="mm-modal-actions">
+      <button type="button" class="mm-btn-outline" id="misEnviosCloseBtn">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <div class="mm-toast" id="toast" hidden></div>
 
-<script src="/config.js"></script>
 <script type="module" src="/js/vidriera.js"></script>
 </body>
 </html>

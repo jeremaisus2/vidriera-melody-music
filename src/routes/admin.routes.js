@@ -16,10 +16,15 @@ import {
   eliminarFoto,
   estadisticasVistas,
   listarPublicacionesAdmin,
+  crearPublicacionDirecta,
   actualizarOrden,
   actualizarDestacadoOverride,
   listarTextosAdmin,
   actualizarTexto,
+  listarFamilias,
+  crearFamilia,
+  editarCodigoFamilia,
+  cambiarEstadoFamilia,
 } from '../controllers/admin.controller.js';
 
 export const adminRouter = Router();
@@ -51,9 +56,16 @@ adminRouter.get('/estadisticas/vistas',  estadisticasVistas);
 // Rutas estáticas antes de cualquier /:id — no hay /publicaciones/:id en este
 // router hoy, pero se mantiene el mismo criterio que el resto del proyecto.
 adminRouter.get('/publicaciones',           listarPublicacionesAdmin);
+adminRouter.post('/publicaciones',          crearPublicacionDirecta);
 adminRouter.put('/publicaciones/orden',     actualizarOrden);
 adminRouter.put('/destacado-override',      actualizarDestacadoOverride);
 
 // --- Textos de la página (Etapa D) ---
 adminRouter.get('/textos',          listarTextosAdmin);
 adminRouter.put('/textos/:clave',   actualizarTexto);
+
+// --- Familias: códigos de acceso ---
+adminRouter.get('/familias',            listarFamilias);
+adminRouter.post('/familias',           crearFamilia);
+adminRouter.put('/familias/:id',        editarCodigoFamilia);
+adminRouter.post('/familias/:id/estado', cambiarEstadoFamilia);

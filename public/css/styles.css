@@ -90,7 +90,7 @@ a:hover { color: #3a5234; }
   margin-left: 8px;
 }
 
-.mm-header-right { display: flex; align-items: center; gap: 26px; }
+.mm-header-right { display: flex; align-items: center; gap: 16px; }
 
 .mm-nav { display: flex; align-items: center; gap: 22px; font-size: 13px; font-weight: 600; }
 .mm-nav a { color: var(--body-text); text-decoration: none; }
@@ -181,6 +181,7 @@ a:hover { color: #3a5234; }
 }
 
 .mm-biz-img {
+  position: relative;
   height: 150px;
   background: repeating-linear-gradient(135deg, #eeece8, #eeece8 11px, #e4e1db 11px, #e4e1db 22px);
   background-size: cover;
@@ -193,6 +194,18 @@ a:hover { color: #3a5234; }
   background: rgba(255,255,255,.7); padding: 3px 8px; border-radius: 4px;
 }
 
+/* Ícono/logo cuadrado del negocio (separado de la portada, opcional):
+   posicionado absoluto dentro de .mm-biz-img para no afectar el flujo del
+   resto de la tarjeta — que una publicación no lo tenga cargado no cambia
+   ningún otro tamaño/posición. */
+.mm-biz-logo {
+  position: absolute; left: 10px; bottom: 10px;
+  width: 40px; height: 40px; border-radius: 8px;
+  background-size: cover; background-position: center;
+  background-color: #fff; border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(26,26,26,.25);
+}
+
 .mm-biz-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .mm-biz-tag { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
 .mm-biz-name { font-family: var(--font-serif); font-weight: 600; font-size: 16px; color: var(--ink); }
@@ -202,7 +215,27 @@ a:hover { color: #3a5234; }
   display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px;
   padding-top: 12px; border-top: 1px solid var(--surface);
 }
-.mm-biz-family { font-size: 11.5px; color: var(--muted); }
+.mm-biz-family { font-size: 11.5px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mm-biz-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+
+/* Sitio web / Instagram: íconos chicos y discretos, solo si el dato existe
+   (ver bizLinksHtml en vidriera.js) — no cambian el layout del footer si
+   no hay ninguno cargado. */
+.mm-biz-link-icon {
+  width: 26px; height: 26px; border-radius: 50%; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 12px; line-height: 1; text-decoration: none;
+}
+.mm-biz-link-icon:hover { background: var(--accent-tint); }
+
+/* Dirección: línea aparte, discreta, arriba del footer (no compite con el
+   botón de WhatsApp por espacio horizontal). */
+.mm-biz-direccion {
+  font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .mm-whatsapp-btn {
   display: flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700;
@@ -291,24 +324,59 @@ a:hover { color: #3a5234; }
 }
 .mm-modal-backdrop[hidden] { display: none; }
 .mm-modal { background: #fff; border-radius: var(--card-radius); padding: 24px; width: 100%; max-width: 340px; box-shadow: var(--shadow-card); }
+/* Formularios con más campos (envío de emprendimiento, alta directa del
+   admin) necesitan más ancho que el modal de login original. */
+.mm-modal.mm-modal-wide { max-width: 520px; max-height: 88vh; overflow-y: auto; }
 .mm-modal-title { font-family: var(--font-serif); font-size: 18px; font-weight: 600; color: var(--ink); }
 .mm-modal-sub { font-size: 12.5px; color: var(--muted); margin: 6px 0 18px; }
 .mm-field { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--body-text); margin-bottom: 14px; }
-.mm-field input {
+.mm-field input, .mm-field select, .mm-field textarea {
   font-family: var(--font-body); font-size: 13px; padding: 9px 10px;
-  border: 1px solid var(--border); border-radius: 6px;
+  border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--body-text);
 }
+.mm-field textarea { resize: vertical; }
 .mm-form-error { font-size: 12px; color: #b3372c; margin: -6px 0 12px; }
 .mm-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
 
-.mm-btn-fill, .mm-btn-outline {
+/* Preview cuadrado de logo/portada recién subidos en un formulario */
+.mm-upload-preview {
+  margin-top: 8px; width: 72px; height: 72px; border-radius: 8px;
+  background-size: cover; background-position: center;
+  background-color: var(--surface); border: 1px solid var(--border);
+}
+.mm-upload-preview[hidden] { display: none; }
+
+/* ---------- Estado (pending/approved/rejected) — reusado en "Mis envíos" ---------- */
+.mm-status-pill {
+  font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 10px; flex: none;
+}
+.mm-status-pill.pending  { background: var(--surface); color: var(--muted); }
+.mm-status-pill.approved { background: var(--accent-tint); color: var(--accent); }
+.mm-status-pill.rejected { background: #fbe9e7; color: #b3372c; }
+
+/* ---------- "Mis envíos" ---------- */
+.mm-envio-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid var(--surface);
+}
+.mm-envio-row:last-child { border-bottom: none; }
+.mm-envio-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.mm-envio-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.mm-envio-status { display: flex; align-items: center; gap: 6px; flex: none; }
+
+.mm-btn-fill, .mm-btn-outline, .mm-btn-danger {
   font-family: var(--font-body); font-size: 12.5px; font-weight: 700; padding: 9px 16px;
   border-radius: 6px; cursor: pointer;
 }
 .mm-btn-fill { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
 .mm-btn-fill:hover { background: #3a5234; }
 .mm-btn-outline { background: #fff; border: 1px solid var(--border); color: var(--body-text); }
-.mm-btn-fill:disabled, .mm-btn-outline:disabled { opacity: .5; cursor: not-allowed; }
+/* Única acción realmente destructiva e irreversible de la app (borra
+   contenido demo + imágenes + cuentas de acceso de una sola vez) — se
+   distingue visualmente del resto de los botones outline. */
+.mm-btn-danger { background: #fff; border: 1px solid #b3372c; color: #b3372c; }
+.mm-btn-danger:hover { background: #fbe9e7; }
+.mm-btn-fill:disabled, .mm-btn-outline:disabled, .mm-btn-danger:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ---------- Toast ---------- */
 .mm-toast {
@@ -321,11 +389,13 @@ a:hover { color: #3a5234; }
    Mobile (< 700px) — mismo orden de secciones, versión compacta.
    ===================================================================== */
 @media (max-width: 700px) {
-  .mm-header { height: auto; min-height: 60px; padding: 14px 16px; }
+  .mm-header { height: auto; min-height: 60px; padding: 14px 16px; flex-wrap: wrap; row-gap: 10px; }
   .mm-logo { width: 32px; height: 32px; border-radius: 7px; font-size: 15px; }
   .mm-wordmark { font-size: 14.5px; }
   .mm-wordmark-sub, .mm-nav { display: none; }
   .mm-avatar { width: 28px; height: 28px; font-size: 10.5px; }
+  .mm-header-right { gap: 8px; }
+  #misEnviosBtn, #sumarEmprendimientoBtn { font-size: 11px; padding: 7px 10px; }
 
   .mm-section { padding: 18px 16px 4px; }
   .mm-section-tinted { padding: 22px 0 8px 16px; }

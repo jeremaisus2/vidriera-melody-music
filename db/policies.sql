@@ -77,6 +77,10 @@ create policy "categorias_select_public"
 -- Catálogo global de módulos. Solo lectura para usuarios autenticados
 -- (el admin necesita ver qué módulos existen; el super_admin los gestiona
 -- via service_role desde el backend).
+-- La columna `activo` (Etapa E, soft delete) no cambia esta política: RLS
+-- es a nivel de fila, no de columna, y de todos modos el filtrado de
+-- "solo módulos activos salvo que la academia ya lo tenga activado" se
+-- hace en el backend (getModulosAcademia), no acá.
 -- =====================================================================
 
 alter table vidriera_modulos enable row level security;
@@ -86,6 +90,44 @@ create policy "modulos_select_authenticated"
   using (auth.uid() is not null);
 
 -- Sin políticas de escritura: el catálogo solo lo toca service_role.
+
+
+-- =====================================================================
+-- vidriera_codigos_familia (panel admin, sección "Familias")
+-- Contiene códigos de acceso EN TEXTO PLANO (decisión consciente, ver
+-- ARQUITECTURA.md) — a propósito, CERO políticas de SELECT/INSERT/UPDATE/
+-- DELETE. Con RLS habilitado y sin ninguna política, PostgREST deniega
+-- todo acceso a anon y authenticated por default; solo service_role (que
+-- bypassa RLS) puede tocar esta tabla. Ni siquiera el propio admin la
+-- consulta con su JWT: el panel de admin siempre pasa por el backend con
+-- supabaseAdmin. Mismo criterio que vidriera_perfiles (sin políticas de
+-- escritura), llevado un paso más allá acá porque el contenido es más
+-- sensible (contraseñas en texto plano, no solo roles).
+-- =====================================================================
+
+alter table vidriera_codigos_familia enable row level security;
+
+-- (sin políticas — ver nota arriba)
+
+
+-- =====================================================================
+-- vidriera_config_plataforma (Etapa E — panel super-admin, "Configuración
+-- de la plataforma")
+-- Ajustes globales, no por cliente. Sin necesidad de scoping por academia:
+-- solo super_admin puede leerlos o escribirlos (defensa en profundidad,
+-- el backend siempre usa service_role para esta pantalla).
+-- =====================================================================
+
+alter table vidriera_config_plataforma enable row level security;
+
+create policy "config_plataforma_select_superadmin"
+  on vidriera_config_plataforma for select
+  using (vidriera_rol() = 'super_admin');
+
+create policy "config_plataforma_write_superadmin"
+  on vidriera_config_plataforma for all
+  using    (vidriera_rol() = 'super_admin')
+  with check (vidriera_rol() = 'super_admin');
 
 
 -- =====================================================================
@@ -523,6 +565,8 @@ create policy "textos_write_admin"
 -- vidriera_galeria                R     R        CRUD     R
 -- vidriera_testimonios            R     R+I      R        R
 -- vidriera_textos                 R     R        CRUD(acad) R
+-- vidriera_config_plataforma      -     -        -        CRUD
+-- vidriera_codigos_familia        -     -        -        -   (solo service_role)
 --
 -- Leyenda:
 --   R  = SELECT    C = INSERT    U = UPDATE    D = DELETE

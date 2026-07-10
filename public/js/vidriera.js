@@ -51,12 +51,14 @@ function renderNegritaHtml(contenido) {
 }
 
 // ---------------------------------------------------------------------------
-// Auth (solo para autenticar familias antes de reaccionar a un evento; la
-// lectura pública de la vidriera no requiere sesión). Se habla directo con
-// el endpoint REST de Supabase Auth por fetch, sin sumar el SDK completo
-// por CDN solo para esto.
+// Auth (solo para autenticar familias antes de reaccionar a un evento o
+// enviar su emprendimiento; la lectura pública de la vidriera no requiere
+// sesión). Sistema de "código de acceso": la familia solo escribe el código
+// que le dio la academia (sin email visible) — el backend
+// (POST /api/auth/familia-login) resuelve a qué cuenta técnica corresponde
+// y arma la sesión real contra Supabase Auth. El email técnico nunca llega
+// al frontend.
 // ---------------------------------------------------------------------------
-const { supabaseUrl, supabaseAnonKey } = window.APP_CONFIG ?? {};
 const AUTH_STORAGE_KEY = 'mm_auth_session';
 
 function loadStoredSession() {
@@ -75,19 +77,19 @@ function loadStoredSession() {
 
 let session = loadStoredSession();
 
-async function signIn(email, password) {
-  const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+async function signIn(codigo) {
+  const res = await fetch('/api/auth/familia-login', {
     method: 'POST',
-    headers: { apikey: supabaseAnonKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codigo }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error_description ?? data.msg ?? 'Credenciales inválidas');
+  if (!res.ok) throw new Error(data.error ?? 'Código inválido');
 
   session = {
     access_token: data.access_token,
     expires_at: Math.floor(Date.now() / 1000) + data.expires_in,
-    user: data.user,
+    nombre_familia: data.nombre_familia,
   };
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
   return session;
@@ -103,9 +105,9 @@ function signOut() {
 function updateAvatar() {
   const avatarBtn = document.getElementById('avatarBtn');
   if (session) {
-    const email = session.user.email ?? '';
-    avatarBtn.textContent = email.slice(0, 2).toUpperCase() || '??';
-    avatarBtn.title = `Sesión iniciada: ${email} (click para salir)`;
+    const nombre = session.nombre_familia ?? 'Familia';
+    avatarBtn.textContent = nombre.slice(0, 2).toUpperCase();
+    avatarBtn.title = `Sesión iniciada: ${nombre} (click para salir)`;
   } else {
     avatarBtn.textContent = '?';
     avatarBtn.title = 'Iniciar sesión';
@@ -151,7 +153,7 @@ loginForm.addEventListener('submit', async (e) => {
   loginError.hidden = true;
 
   try {
-    await signIn(formData.get('email'), formData.get('password'));
+    await signIn(formData.get('codigo'));
   } catch (err) {
     loginError.textContent = 'No pudimos iniciar sesión: ' + err.message;
     loginError.hidden = false;
@@ -181,6 +183,180 @@ function showToast(msg) {
   toast.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.hidden = true; }, 3000);
+}
+
+// ---------------------------------------------------------------------------
+// Envío de emprendimiento (Etapa G) — formulario real conectado a
+// POST /api/publicaciones. Requiere sesión de familia; si no hay una activa,
+// encadena el login por código (mismo mecanismo que ya usan las reacciones,
+// `openLoginModal(afterLogin)`) y recién después abre este formulario.
+// `familia` no es un campo del formulario: se toma de `session.nombre_familia`
+// (ya conocido desde el login por código), no tiene sentido pedírselo de
+// nuevo a la familia.
+// ---------------------------------------------------------------------------
+const submitBackdrop = document.getElementById('submitBackdrop');
+const submitForm = document.getElementById('submitForm');
+const submitError = document.getElementById('submitError');
+let submitLogoUrl = null;
+let submitImagenUrl = null;
+
+document.getElementById('submitCategoria').innerHTML =
+  CATEGORIAS.map((c) => `<option value="${c.clave}">${escapeHtml(c.nombre)}</option>`).join('');
+
+function openSubmitModal() {
+  if (!session) {
+    openLoginModal(() => openSubmitModal());
+    return;
+  }
+  submitForm.reset();
+  submitError.hidden = true;
+  submitLogoUrl = null;
+  submitImagenUrl = null;
+  document.getElementById('submitLogoPreview').hidden = true;
+  document.getElementById('submitPortadaPreview').hidden = true;
+  submitBackdrop.hidden = false;
+}
+
+function closeSubmitModal() {
+  submitBackdrop.hidden = true;
+}
+
+document.getElementById('sumarEmprendimientoBtn').addEventListener('click', () => openSubmitModal());
+document.getElementById('submitCancel').addEventListener('click', closeSubmitModal);
+submitBackdrop.addEventListener('click', (e) => { if (e.target === submitBackdrop) closeSubmitModal(); });
+
+async function subirArchivo(file, tipo) {
+  const form = new FormData();
+  form.append('imagen', file);
+  form.append('tipo', tipo);
+  const headers = {};
+  if (session) headers.Authorization = `Bearer ${session.access_token}`;
+  const res = await fetch('/api/uploads/imagen', { method: 'POST', headers, body: form });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'No se pudo subir la imagen');
+  return data.imagen_url;
+}
+
+document.getElementById('submitLogoInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    submitLogoUrl = await subirArchivo(file, 'logo');
+    const preview = document.getElementById('submitLogoPreview');
+    preview.style.backgroundImage = `url('${submitLogoUrl}')`;
+    preview.hidden = false;
+  } catch (err) {
+    submitError.textContent = err.message;
+    submitError.hidden = false;
+    e.target.value = '';
+  }
+});
+
+document.getElementById('submitPortadaInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    submitImagenUrl = await subirArchivo(file, 'portada');
+    const preview = document.getElementById('submitPortadaPreview');
+    preview.style.backgroundImage = `url('${submitImagenUrl}')`;
+    preview.hidden = false;
+  } catch (err) {
+    submitError.textContent = err.message;
+    submitError.hidden = false;
+    e.target.value = '';
+  }
+});
+
+submitForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  submitError.hidden = true;
+
+  if (!submitLogoUrl) {
+    submitError.textContent = 'El logo es obligatorio.';
+    submitError.hidden = false;
+    return;
+  }
+
+  const formData = new FormData(submitForm);
+  const saveBtn = document.getElementById('submitSaveBtn');
+  saveBtn.disabled = true;
+
+  const { ok, data } = await apiPost('/api/publicaciones', {
+    nombre: formData.get('nombre'),
+    familia: session.nombre_familia,
+    categoria: formData.get('categoria'),
+    descripcion: formData.get('descripcion'),
+    whatsapp: formData.get('whatsapp'),
+    logo_url: submitLogoUrl,
+    imagen_url: submitImagenUrl,
+    sitio_web: formData.get('sitio_web'),
+    instagram: formData.get('instagram'),
+    direccion: formData.get('direccion'),
+  });
+
+  saveBtn.disabled = false;
+
+  if (!ok) {
+    submitError.textContent = data.error ?? 'No se pudo enviar el emprendimiento.';
+    submitError.hidden = false;
+    return;
+  }
+
+  closeSubmitModal();
+  showToast('¡Listo! Tu emprendimiento quedó en revisión del admin.');
+});
+
+// ---------------------------------------------------------------------------
+// "Mis envíos" (Etapa G) — conecta GET /api/publicaciones/mias/listado (ya
+// existía en el backend, pero no tenía ninguna interfaz visible) a un modal
+// con el estado de cada publicación enviada por la familia logueada.
+// ---------------------------------------------------------------------------
+const ESTADO_LABELS = { pending: 'En revisión', approved: 'Publicado', rejected: 'Rechazado' };
+const misEnviosBackdrop = document.getElementById('misEnviosBackdrop');
+
+function openMisEnviosModal() {
+  if (!session) {
+    openLoginModal(() => openMisEnviosModal());
+    return;
+  }
+  misEnviosBackdrop.hidden = false;
+  loadMisEnvios();
+}
+
+function closeMisEnviosModal() {
+  misEnviosBackdrop.hidden = true;
+}
+
+document.getElementById('misEnviosBtn').addEventListener('click', () => openMisEnviosModal());
+document.getElementById('misEnviosCloseBtn').addEventListener('click', closeMisEnviosModal);
+misEnviosBackdrop.addEventListener('click', (e) => { if (e.target === misEnviosBackdrop) closeMisEnviosModal(); });
+
+function envioRowHtml(p) {
+  return `
+    <div class="mm-envio-row">
+      <div>
+        <div class="mm-envio-name">${escapeHtml(p.nombre)}</div>
+        <div class="mm-envio-meta">${escapeHtml(categoriaNombre(p.categoria))}${p.estado === 'rejected' && p.motivo_rechazo ? ' · ' + escapeHtml(p.motivo_rechazo) : ''}</div>
+      </div>
+      <div class="mm-envio-status">
+        ${p.edicion_pendiente ? '<span class="mm-status-pill pending">Cambios en revisión</span>' : ''}
+        <span class="mm-status-pill ${p.estado}">${escapeHtml(ESTADO_LABELS[p.estado] ?? p.estado)}</span>
+      </div>
+    </div>`;
+}
+
+async function loadMisEnvios() {
+  const wrap = document.getElementById('misEnviosList');
+  wrap.innerHTML = '<p class="mm-empty">Cargando…</p>';
+  try {
+    const envios = await apiGet('/api/publicaciones/mias/listado');
+    wrap.innerHTML = envios.length === 0
+      ? '<p class="mm-empty">Todavía no enviaste ningún emprendimiento.</p>'
+      : envios.map(envioRowHtml).join('');
+  } catch (err) {
+    console.error(err);
+    wrap.innerHTML = '<p class="mm-empty">No pudimos cargar tus envíos.</p>';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -220,11 +396,47 @@ async function apiPost(path, body) {
 // ---------------------------------------------------------------------------
 // Business card (usado en la vidriera y como preview de sponsors)
 // ---------------------------------------------------------------------------
+function bizLogoHtml(pub) {
+  // Separado de la portada (imagen_url): opcional, no todas las publicaciones
+  // lo tienen cargado — string vacío si no hay logo, así no cambia nada del
+  // resto de la tarjeta.
+  if (!pub.logo_url) return '';
+  return `<div class="mm-biz-logo" style="background-image:url('${escapeHtml(pub.logo_url)}')"></div>`;
+}
+
 function bizImgHtml(pub) {
   if (pub.imagen_url) {
-    return `<div class="mm-biz-img" style="background-image:url('${escapeHtml(pub.imagen_url)}')"></div>`;
+    return `<div class="mm-biz-img" style="background-image:url('${escapeHtml(pub.imagen_url)}')">${bizLogoHtml(pub)}</div>`;
   }
-  return `<div class="mm-biz-img"><span class="mm-biz-img-caption">sin imagen</span></div>`;
+  return `<div class="mm-biz-img"><span class="mm-biz-img-caption">sin imagen</span>${bizLogoHtml(pub)}</div>`;
+}
+
+// sitio_web/instagram admiten que la familia haya cargado solo el handle
+// ("@usuario") o una URL completa — se normalizan acá para armar un link
+// usable en ambos casos.
+function normalizarUrl(valor) {
+  if (!valor) return null;
+  return /^https?:\/\//i.test(valor) ? valor : `https://${valor}`;
+}
+
+function instagramUrl(valor) {
+  if (!valor) return null;
+  if (/^https?:\/\//i.test(valor)) return valor;
+  return `https://instagram.com/${valor.replace(/^@/, '')}`;
+}
+
+// Íconos discretos junto al botón de WhatsApp — solo se agregan si el dato
+// existe, así que una publicación sin sitio/instagram no cambia en nada el
+// footer de las demás.
+function bizLinksHtml(pub) {
+  const links = [];
+  if (pub.sitio_web) {
+    links.push(`<a class="mm-biz-link-icon" href="${escapeHtml(normalizarUrl(pub.sitio_web))}" target="_blank" rel="noopener" title="Sitio web">🌐</a>`);
+  }
+  if (pub.instagram) {
+    links.push(`<a class="mm-biz-link-icon" href="${escapeHtml(instagramUrl(pub.instagram))}" target="_blank" rel="noopener" title="Instagram">📷</a>`);
+  }
+  return links.join('');
 }
 
 function businessCardHtml(pub) {
@@ -235,11 +447,15 @@ function businessCardHtml(pub) {
         <span class="mm-biz-tag">${escapeHtml(categoriaNombre(pub.categoria))}</span>
         <div class="mm-biz-name">${escapeHtml(pub.nombre)}</div>
         <div class="mm-biz-desc">${escapeHtml(pub.descripcion ?? '')}</div>
+        ${pub.direccion ? `<div class="mm-biz-direccion">📍 ${escapeHtml(pub.direccion)}</div>` : ''}
         <div class="mm-biz-footer">
           <span class="mm-biz-family">${escapeHtml(pub.familia ?? '')}</span>
-          ${pub.whatsapp
-            ? `<a class="mm-whatsapp-btn" href="https://wa.me/${escapeHtml(pub.whatsapp)}" target="_blank" rel="noopener" data-pub-id="${pub.id}">WhatsApp</a>`
-            : ''}
+          <div class="mm-biz-actions">
+            ${bizLinksHtml(pub)}
+            ${pub.whatsapp
+              ? `<a class="mm-whatsapp-btn" href="https://wa.me/${escapeHtml(pub.whatsapp)}" target="_blank" rel="noopener" data-pub-id="${pub.id}">WhatsApp</a>`
+              : ''}
+          </div>
         </div>
       </div>
     </div>`;

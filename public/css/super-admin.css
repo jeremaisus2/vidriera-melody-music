@@ -54,3 +54,47 @@
 .mm-toggle-track:not(.on) { justify-content: flex-start; }
 .mm-toggle-track:disabled { opacity: .6; cursor: wait; }
 .mm-toggle-knob { width: 18px; height: 18px; border-radius: 50%; background: #fff; display: block; }
+
+/* ---------- Configuración de la plataforma (Etapa E) ---------- */
+/* Declara display distinto de none: necesita su propio [hidden] override
+   (convención de la app, ver ARQUITECTURA.md §6.1 — bug real encontrado
+   dos veces antes de que se documentara como regla). */
+.mm-config-wrap { padding: 32px 40px; max-width: 760px; display: flex; flex-direction: column; gap: 40px; }
+.mm-config-wrap[hidden] { display: none; }
+
+.mm-config-block-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+.mm-config-block-header .mm-stats-subtitle { max-width: 480px; }
+
+/* Formulario de alta/edición de módulo: misma "tarjeta levantada" que el
+   resto de las filas movibles/editables de la plataforma (Orden/Textos). */
+.mm-modulo-form {
+  background: #fff; border: 1px solid transparent; border-radius: var(--card-radius);
+  box-shadow: var(--shadow-card); transform: translateY(-4px);
+  padding: 20px 22px; margin-bottom: 22px;
+}
+.mm-modulo-form[hidden] { display: none; }
+.mm-modulo-form-row { display: flex; gap: 16px; }
+.mm-modulo-form-row .mm-field { flex: 1; min-width: 0; }
+.mm-modulo-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+.mm-field-checkbox {
+  display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600;
+  color: var(--body-text); margin-bottom: 14px; cursor: pointer;
+}
+.mm-field-checkbox input { flex: none; width: 16px; height: 16px; }
+
+.mm-modulos-catalogo-list { display: flex; flex-direction: column; gap: 14px; }
+
+.mm-modulo-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 16px 18px; background: #fff; border: 1px solid transparent; border-radius: var(--card-radius);
+  box-shadow: var(--shadow-card); transform: translateY(-4px);
+}
+.mm-modulo-row-info { min-width: 0; }
+.mm-modulo-clave { font-size: 11.5px; font-weight: 400; color: var(--muted); }
+.mm-modulo-badges { display: flex; gap: 8px; margin-top: 6px; }
+.mm-modulo-desc { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.mm-modulo-row-actions { display: flex; gap: 8px; flex: none; }
+
+.mm-config-form { max-width: 420px; margin-top: 22px; }
+.mm-config-form-actions { margin-top: 4px; }
