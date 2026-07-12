@@ -7,6 +7,7 @@ import { superadminRouter } from './superadmin.routes.js';
 import { uploadsRouter } from './uploads.routes.js';
 import { textosRouter } from './textos.routes.js';
 import { authRouter } from './auth.routes.js';
+import { agendaRouter } from './agenda.routes.js';
 
 export const apiRouter = Router();
 
@@ -30,3 +31,6 @@ apiRouter.use('/super-admin', superadminRouter);
 
 // Upload de imágenes (Supabase Storage) — usado por publicaciones y galería
 apiRouter.use('/uploads', uploadsRouter);
+
+// Módulo: Agenda de la comunidad (landing pública "Comunidad Melody")
+apiRouter.use('/agenda', agendaRouter);

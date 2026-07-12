@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Melody Music — Panel de administración</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Petit+Formal+Script&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/styles.css">
 <link rel="stylesheet" href="/css/admin.css">
 </head>
@@ -38,6 +38,7 @@
     <div class="mm-sidebar-brand">
       <div class="mm-logo">M</div>
       <div>
+        <span class="mm-eyebrow-script">Panel de gestión</span>
         <div class="mm-wordmark">Melody Music</div>
         <div class="mm-wordmark-sub">Panel de administración</div>
       </div>
@@ -57,6 +58,8 @@
       <button type="button" class="mm-sidebar-item" id="navOrdenBtn">Orden de la vidriera</button>
       <button type="button" class="mm-sidebar-item" id="navTextosBtn">Textos de la página</button>
       <button type="button" class="mm-sidebar-item" id="navFamiliasBtn">Familias</button>
+      <div class="mm-sidebar-divider"></div>
+      <a href="/agenda-admin.html" class="mm-sidebar-item">Agenda ↗</a>
     </nav>
   </aside>
 
@@ -66,7 +69,7 @@
         <div class="mm-queue-header">
           <div class="mm-queue-header-row">
             <div>
-              <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;">Publicaciones pendientes</div>
+              <div class="mm-h1" style="font-size:17px;font-weight:600;color:#2B2B24;">Publicaciones pendientes</div>
               <div class="mm-queue-count" id="pendingCountLabel"></div>
             </div>
             <button type="button" class="mm-btn-fill" id="crearPublicacionBtn">Crear publicación</button>
@@ -80,7 +83,7 @@
     </section>
 
     <section id="tabStats" class="mm-stats-wrap" hidden>
-      <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Vistas por emprendimiento</div>
+      <div class="mm-h1" style="font-size:17px;font-weight:600;color:#2B2B24;margin-bottom:4px;">Vistas por emprendimiento</div>
       <div class="mm-stats-subtitle">Total acumulado · solo publicaciones aprobadas</div>
       <div id="statsList"></div>
     </section>
@@ -88,7 +91,7 @@
     <section id="tabOrden" class="mm-orden-wrap" hidden>
       <div class="mm-orden-header">
         <div>
-          <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Orden de la vidriera</div>
+          <div class="mm-h1" style="font-size:17px;font-weight:600;color:#2B2B24;margin-bottom:4px;">Orden de la vidriera</div>
           <div class="mm-stats-subtitle" style="margin-bottom:0;">Arrastrá para reordenar cómo aparecen en la vidriera pública. "Fijar como destacado" anula la rotación automática del banner de la semana.</div>
         </div>
         <div class="mm-orden-actions">
@@ -106,7 +109,7 @@
     </section>
 
     <section id="tabTextos" class="mm-textos-wrap" hidden>
-      <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Textos de la página</div>
+      <div class="mm-h1" style="font-size:17px;font-weight:600;color:#2B2B24;margin-bottom:4px;">Textos de la página</div>
       <div class="mm-stats-subtitle">Títulos y subtítulos fijos de la vidriera pública. Los cambios se ven ahí apenas se guardan.</div>
       <div id="textosList" class="mm-textos-list"></div>
     </section>
@@ -114,27 +117,10 @@
     <section id="tabFamilias" class="mm-familias-wrap" hidden>
       <div class="mm-orden-header">
         <div>
-          <div class="mm-h1" style="font-size:17px;font-weight:600;color:#1a1a1a;margin-bottom:4px;">Familias</div>
+          <div class="mm-h1" style="font-size:17px;font-weight:600;color:#2B2B24;margin-bottom:4px;">Familias</div>
           <div class="mm-stats-subtitle" style="margin-bottom:0;">Códigos de acceso para que cada familia envíe su emprendimiento (sin login tradicional). Dar de baja no borra sus publicaciones existentes.</div>
         </div>
         <button type="button" class="mm-btn-fill" id="newFamiliaBtn">Nueva familia</button>
-      </div>
-
-      <div class="mm-familia-form" id="familiaForm" hidden>
-        <input type="hidden" id="familiaFormIdOriginal">
-        <label class="mm-field" id="familiaFormNombreField">
-          <span>Nombre identificador</span>
-          <input type="text" id="familiaFormNombre" placeholder="ej: Familia Gómez">
-        </label>
-        <label class="mm-field">
-          <span>Contraseña / código de acceso</span>
-          <input type="text" id="familiaFormCodigo" placeholder="ej: gomezmelody">
-        </label>
-        <p class="mm-form-error" id="familiaFormError" hidden></p>
-        <div class="mm-familia-form-actions">
-          <button type="button" class="mm-btn-outline" id="familiaFormCancelBtn">Cancelar</button>
-          <button type="button" class="mm-btn-fill" id="familiaFormSaveBtn">Guardar</button>
-        </div>
       </div>
 
       <div id="familiasList" class="mm-familias-list"></div>
@@ -143,9 +129,37 @@
 
 </div>
 
-<div class="mm-modal-backdrop" id="crearPubBackdrop" hidden>
-  <div class="mm-modal mm-modal-wide">
+<div class="mm-panel-overlay" id="familiaOverlay" hidden></div>
+<aside class="mm-side-panel" id="familiaPanel" hidden>
+  <div class="mm-side-panel-head">
+    <div class="mm-modal-title" id="familiaFormTitle">Nueva familia</div>
+    <button type="button" class="mm-side-panel-close" id="familiaFormCloseBtn" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="mm-side-panel-body">
+    <input type="hidden" id="familiaFormIdOriginal">
+    <label class="mm-field" id="familiaFormNombreField">
+      <span>Nombre identificador</span>
+      <input type="text" id="familiaFormNombre" placeholder="ej: Familia Gómez">
+    </label>
+    <label class="mm-field">
+      <span>Contraseña / código de acceso</span>
+      <input type="text" id="familiaFormCodigo" placeholder="ej: gomezmelody">
+    </label>
+    <p class="mm-form-error" id="familiaFormError" hidden></p>
+    <div class="mm-familia-form-actions">
+      <button type="button" class="mm-btn-outline" id="familiaFormCancelBtn">Cancelar</button>
+      <button type="button" class="mm-btn-fill" id="familiaFormSaveBtn">Guardar</button>
+    </div>
+  </div>
+</aside>
+
+<div class="mm-panel-overlay" id="crearPubOverlay" hidden></div>
+<aside class="mm-side-panel" id="crearPubPanel" hidden>
+  <div class="mm-side-panel-head">
     <div class="mm-modal-title">Crear publicación</div>
+    <button type="button" class="mm-side-panel-close" id="crearPubCloseBtn" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="mm-side-panel-body">
     <div class="mm-modal-sub">Se publica de inmediato en la vidriera pública, sin pasar por la cola de aprobación.</div>
     <form id="crearPubForm">
       <label class="mm-field">
@@ -197,7 +211,7 @@
       </div>
     </form>
   </div>
-</div>
+</aside>
 
 <div class="mm-toast" id="toast" hidden></div>
 

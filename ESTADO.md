@@ -208,6 +208,258 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-12 #22 — Lavado de cara visual: vidriera, eventos y sponsors
+
+Pedido explícito: extender la dirección visual estrenada en Agenda (sesión
+#21) al resto del panel de administración — **100% visual, cero cambios de
+lógica/rutas/tablas**. Sin migraciones corridas ni git push en esta sesión
+(pedido explícito): todo el trabajo queda en el filesystem local.
+
+**Premisa verificada antes de tocar nada** (con `grep` en todo `public/`):
+"Panel de calendario de eventos" y "Panel de sponsors y destacados" —
+descriptos en el pedido como pantallas "existentes" — en realidad **no
+tenían ningún frontend**. El backend sí existía completo (`/api/admin/eventos`,
+`/api/admin/eventos/:id/sponsors`, `/api/eventos/:id/sponsors` público) desde
+Etapa 1, pero nunca se había construido ninguna pantalla que lo consumiera.
+Consultado con el usuario antes de seguir — eligió que se construyeran igual
+(UI nueva sobre endpoints ya existentes, sin tocar backend), en vez de
+limitar el alcance solo al reskin de lo que ya tenía pantalla.
+
+**1. Reskin de `admin.html`/`admin.css`/`admin.js`** (Cola de aprobación,
+Estadísticas, Orden de la vidriera, Textos, Familias — todo lo que ya
+existía): paleta cream/olive/clay + Playfair Display/Petit Formal
+Script/Inter, mismos tokens que `agenda-admin.css` pero **sin tocar
+`styles.css`** (compartido con `index.html` y `super-admin.html`, fuera de
+alcance) — se logró reescribiendo las variables de `:root` dentro del propio
+`admin.css` (que carga después en `admin.html`, así que sus valores ganan) +
+un puñado de overrides puntuales para los pocos colores que styles.css tenía
+hardcodeados en vez de variabilizados (`.mm-modal`, `.mm-btn-fill:hover`,
+`.mm-btn-danger`, `.mm-form-error`, `.mm-status-pill.rejected`). Efecto
+colateral aprovechado: `.mm-wordmark`/`.mm-h1` ya usaban `var(--font-serif)`,
+así que "Melody Music" y los títulos de sección pasaron a Playfair Display
+sin tocar una sola regla de esas clases. Se agregó una línea en Petit Formal
+Script ("Panel de gestión") sobre el wordmark del sidebar, mismo recurso que
+la landing/Agenda. 5 colores hardcodeados sueltos en `admin.html` (`color:
+#1a1a1a` inline en los `<h1>` de cada sección) también se corrigieron al
+nuevo tono de tinta.
+
+**2. Modal → panel lateral deslizante** en los 2 lugares de `admin.html` que
+editaban un registro: "Crear publicación" (formulario largo, 9 campos + 2
+uploads de imagen — se evaluó mantenerlo modal por ser extenso, pero el
+panel lateral ya soporta scroll interno sin problema, así que se migró igual
+para consistencia) y "Familias" (alta/edición de código de acceso). Mismo
+patrón exacto que Agenda: `.mm-panel-overlay`/`.mm-side-panel` (clases
+nuevas en `admin.css`, INDEPENDIENTES de `.ag-overlay`/`.ag-panel` de
+`agenda-admin.css` — se mantiene el criterio de "misma dirección, cero CSS
+compartido" documentado en ARQUITECTURA.md §6.3), abiertos/cerrados con
+`requestAnimationFrame` + clase `.mm-show` para disparar la transición CSS,
+igual que `agenda-admin.js`. Cero cambios en los campos, validaciones o
+endpoints de ninguno de los dos formularios — solo cómo se muestran/ocultan.
+
+**3. Estados vacíos con copy propio** (`admin.js`): "Todo al día" (cola sin
+pendientes, ✨), "Sin estadísticas todavía" (📈), "Nada para ordenar
+todavía" (🗂️), "Ninguna familia dada de alta" (👪) — mismo componente
+`.mm-empty-rich` (icono + título Playfair + texto) que ya usa Agenda. Los
+estados de **error** (fallo de red/fetch, ej. "No pudimos cargar los
+textos") se dejaron con texto plano sin personalidad — mismo criterio que
+Agenda, que tampoco le pone humor a un error real.
+
+**4. Sin reordenamiento por migrar**: "Orden de la vidriera" ya usaba drag-
+and-drop nativo desde la Etapa C (no inputs numéricos) — nada que migrar
+ahí, solo reskin de color/tipografía.
+
+**5. Pantalla nueva: `eventos-admin.html`/`css/eventos-admin.css`/
+`js/eventos-admin.js`** — CRUD de eventos (nombre, tipo, fecha+hora, lugar,
+descripción) consumiendo `/api/admin/eventos` ya existente. Sin
+reordenamiento (la tabla `vidriera_eventos` no tiene columna `orden`, se
+lista cronológico como ya lo devolvía el backend). Cada tarjeta de evento
+muestra, de solo lectura, los conteos que `getEventosAdmin()` ya devolvía y
+que nunca se habían mostrado en ningún lado: confirmados RSVP, reacciones
+("voy a asistir"/"nos encantó"), cantidad de sponsors (con link a la
+pantalla de Sponsors) y cantidad de fotos de galería — esta última se
+muestra como dato de contexto nada más, **no se construyó gestión de
+galería** (no estaba en el pedido, habría sido alcance extra no pedido).
+
+**6. Pantalla nueva: `sponsors-admin.html`/`css/sponsors-admin.css`/
+`js/sponsors-admin.js`** — selector de evento (columna izquierda) +
+checklist de publicaciones aprobadas (columna derecha) para definir qué
+emprendimientos sponsorean cada evento. Sin ningún endpoint nuevo: usa
+`GET /api/admin/eventos` (lista de eventos), `GET /api/eventos/:id/sponsors`
+(**público**, ya existía, se reusa desde un contexto autenticado sin ningún
+problema — solo para saber qué publicaciones ya son sponsors y pre-marcar
+sus checkboxes) y `GET /api/admin/publicaciones?estado=approved` (universo
+de publicaciones elegibles) para armar la pantalla, y
+`PUT /api/admin/eventos/:id/sponsors` para guardar. Soporta
+`?evento_id=<id>` en la URL para llegar con un evento preseleccionado
+(usado por el link "🤝 N sponsors" de cada tarjeta en Eventos). **"Destacados"
+del pedido no se duplicó como funcionalidad**: la anulación manual del
+destacado ya vive en "Orden de la vidriera" (reskineada en el punto 1) — acá
+solo se agregó una nota explicativa enlazando a esa pantalla, para no volver
+a implementar la misma lógica en dos lugares.
+
+**7. Sidebar de `admin.html`**: 2 links nuevos (`Eventos ↗`, `Sponsors ↗`),
+mismo patrón que el link de Agenda de la sesión anterior — abren cada
+pantalla en una página aparte, comparten sesión vía la misma clave de
+`localStorage` (`mm_admin_auth_session`).
+
+**Verificado** (sin browser disponible en este entorno, igual que la sesión
+anterior — verificación por código + servidor real, no capturas):
+- `node --check` sobre los 4 archivos JS nuevos/editados: sin errores.
+- Balance de tags (`div`/`aside`/`form`/`label`) verificado
+  programáticamente en los 4 HTML tocados/nuevos: todos calzan.
+- Cero ids duplicados dentro de cada HTML.
+- Todos los `getElementById` de cada JS resuelven contra su HTML (las únicas
+  "faltantes" son ids inyectados dinámicamente por `innerHTML` en tiempo de
+  ejecución — `approveBtn`/`rejectBtn`/`emptyNewBtn`/`guardarSponsorsBtn` —,
+  mismo patrón preexistente, no un bug).
+- Servidor real levantado contra el Supabase real del proyecto: los 4 HTML
+  (`admin.html`, `agenda-admin.html`, `eventos-admin.html`,
+  `sponsors-admin.html`) y sus 3 CSS/2 JS nuevos responden `200` con el
+  content-type correcto; `GET /api/admin/eventos` sin token sigue
+  respondiendo `401` (auth intacta, sin regresión).
+- **No se corrió ninguna migración ni se hizo commit/push** — pedido
+  explícito, queda para cuando el usuario decida.
+
+**Pendiente / recordatorio para el usuario**:
+1. Correr las migraciones de Supabase acumuladas (`009_eventos_demo.sql` si
+   no estaba corrida, y sobre todo `010_agenda.sql` de la sesión anterior —
+   sigue sin correr, confirmado en esa sesión que bloquea `/api/agenda`).
+2. `git push` cuando el usuario decida — nada se subió a git en esta sesión
+   ni en la anterior.
+3. Validación visual real (Playwright o manual) de las 4 pantallas
+   reskineadas/nuevas — pendiente por falta de herramienta de browser en
+   este entorno, igual que quedó pendiente para Agenda.
+4. Galería de fotos por evento sigue sin ninguna pantalla de gestión (fuera
+   de alcance de esta sesión, ver punto 5 arriba) — decidir si hace falta
+   una etapa aparte.
+
+---
+
+### Sesión 2026-07-12 #21 — Módulo nuevo: Agenda (landing pública "Comunidad Melody")
+
+Primer módulo nuevo agregado al catálogo desde que existe (Etapa E, sesión #15)
+— hasta ahora el catálogo solo tenía los 4 módulos originales de la spec
+(vidriera, galería, estadísticas, QR). 100% aditivo: ningún archivo/tabla/ruta
+de los módulos existentes se tocó, salvo 3 ediciones mínimas confirmadas de
+antemano con el usuario (ver abajo).
+
+**Contexto**: hasta ahora `comunidad-melody-landing.html` (la landing pública
+de "Comunidad Melody", pensada para embeberse vía iframe en WordPress/Elementor
+del sitio del cliente) **no vivía en este repo** — era un archivo suelto en
+`~/Descargas/` con 13 versiones de una sesión de diseño iterativa (herramienta
+externa de diseño). Se tomó la versión más reciente por timestamp (la `(12)`,
+2026-07-11 01:42) como base, copiada (no movida — el original en Descargas
+queda intacto) a `public/comunidad-melody-landing.html`. A partir de esta
+sesión el archivo pasa a vivir y versionarse en el repo.
+
+**Migración** (`db/migrations/010_agenda.sql`, para correr manualmente en el
+SQL Editor — **todavía no corrida**, confirmado con un `curl` real contra
+`/api/agenda` que devuelve `PGRST205 — Could not find the table
+'public.vidriera_agenda'`): tabla nueva `vidriera_agenda` (`titulo`, `lugar`,
+`fecha` date, `hora` time, `orden` int not null default 0, `activo`), RLS
+mismo patrón que `vidriera_eventos` (lectura pública solo `activo=true`,
+escritura solo admin de la propia academia), + `insert` idempotente del módulo
+`agenda` en `vidriera_modulos` (adicional pago, `incluido=false`, mismo
+patrón que `db/seed.sql`).
+
+**Decisión no obvia — `orden` vs. `fecha`**: a diferencia de
+`vidriera_publicaciones.orden` (nullable, "cae" a `created_at desc`), acá el
+pedido explícito fue que `GET /api/agenda` ordene "por fecha y luego por
+campo orden" — `fecha` manda, `orden` es solo desempate manual entre eventos
+del mismo día. Por eso es `NOT NULL default 0` (no el patrón "null = sin
+ordenar"). Default al crear un evento: cantidad actual de eventos de la
+academia (contador simple), editable después por drag-and-drop.
+
+**Backend** (`src/repos/agenda.repo.js`, `src/controllers/agenda.controller.js`,
+`src/routes/agenda.routes.js`, nuevos): mismo patrón que
+`eventos.repo.js`/`publicaciones.repo.js`. `setOrden()` es un clon exacto del
+patrón ya usado en `publicacionesRepo.setOrden` (recalcula 0..N-1, ids ajenos
+a la academia se ignoran y se reportan). Sin gating por módulo activo en el
+backend — se confirmó revisando el código que hoy ningún módulo (galería,
+estadísticas, QR) se bloquea realmente por `vidriera_academia_modulos`: el
+catálogo es solo bookkeeping para el super-admin, no un enforcement real.
+Se mantuvo el mismo criterio para no inventar una excepción.
+
+**3 ediciones mínimas a archivos existentes, confirmadas con el usuario antes
+de tocarlas** (todo lo demás es archivo nuevo):
+1. `src/routes/index.js` — 1 línea, registra `agendaRouter` en `/api/agenda`.
+2. `src/routes/admin.routes.js` — 5 líneas, registra las rutas
+   `/api/admin/agenda*` (mismo bloque que ya usan Familias/Orden/Textos).
+3. `public/admin.html` — 1 link nuevo en el sidebar (`Agenda ↗`) que abre
+   `agenda-admin.html` en una página aparte. No se tocó `admin.js`.
+
+**Panel de administración — pantalla nueva y aislada** (`public/agenda-admin.html`,
+`public/css/agenda-admin.css`, `public/js/agenda-admin.js`): es el **piloto**
+de una nueva dirección visual para el panel, pedido explícito del usuario
+("se irá extendiendo a otros módulos más adelante"). Paleta cream (`#F7F3EA`)/
+olive (`#38452B`)/clay (`#C97A55`) + Playfair Display/Petit Formal Script,
+tomada de la landing pública pero adaptada a un contexto funcional —
+deliberadamente **sin compartir ni una clase ni un token** con
+`admin.css`/`admin.js` actuales (que siguen con Lora/Public Sans/verde oliva
+distinto, sin cambios). Reorder por drag-and-drop nativo + undo/redo en
+memoria de sesión: mismo patrón exacto que "Orden de la vidriera"
+(`public/js/admin.js`), no una reimplementación. Alta/edición en un panel
+lateral deslizante (no un modal centrado, para diferenciarse visualmente del
+admin actual). Estado vacío con copy propio ("Todavía no hay nada en el
+calendario...") en vez de un genérico "no hay datos".
+
+**Sesión compartida con `admin.html`**: `agenda-admin.js` lee/escribe la
+MISMA clave de `localStorage` (`mm_admin_auth_session`) que ya usa `admin.js`
+— si el admin ya inició sesión en una de las dos pantallas, entra directo a
+la otra sin loguearse de nuevo. Logrado por convención (misma clave, mismo
+origen), no por código compartido — `admin.js` no se tocó.
+
+**Landing pública** (`public/comunidad-melody-landing.html`): los 5
+`.agenda-row` hardcodeados del panel "Agenda" (3 columnas: Estadísticas/Muro/
+Agenda) se reemplazaron por un `fetch('/api/agenda')` relativo (mismo origen,
+sin CORS) con skeleton de carga (shimmer CSS) y estado vacío/error con el
+mismo lenguaje visual del resto de la página. Mes abreviado en mayúsculas
+derivado de `fecha` (`toLocaleDateString('es-AR',{month:'short'})`). Se
+agregó también al final del mismo `<script>` existente un snippet de
+auto-resize para iframe: postea `document.body.scrollHeight` al `parent` vía
+`postMessage` en `load`, y de nuevo con un `ResizeObserver` sobre `body`
+(cubre el fetch de agenda y cualquier módulo futuro, no solo este). Snippet
+de WordPress/Elementor aparte, no en el HTML servido:
+`public/snippets/wordpress-iframe-comunidad-melody.html`.
+
+**Servido como estático**: no requirió ningún cambio de código — `src/app.js`
+ya servía `public/` completo (`express.static`) desde antes de esta sesión.
+Al copiar el HTML ahí, ya quedó accesible en `/comunidad-melody-landing.html`.
+Carpeta de destino para los próximos HTML de la landing
+(`repositorio-musica.html`, `concierto-invernal.html`): la misma, `public/`.
+
+**Verificado** (sin migración corrida todavía, así que sin datos reales end-
+to-end — pendiente para la próxima sesión, después de que el usuario corra
+`010_agenda.sql`):
+- `node --check` sobre los 4 archivos JS nuevos del backend/admin: sin errores
+  de sintaxis.
+- Servidor real levantado localmente contra el Supabase real del proyecto
+  (mismas credenciales de `.env`, `MOCK_AUTH=false`): `GET /api/agenda`
+  responde `500` con el error esperado de Postgrest
+  `"Could not find the table 'public.vidriera_agenda'"` — confirma que el
+  router/controller/repo están bien conectados de punta a punta, y que el
+  único bloqueante real es la migración pendiente (no un bug de código).
+  Mismo comportamiento confirmado en `/api/eventos`/`/api/publicaciones` bajo
+  las mismas condiciones (no es una regresión de esta sesión).
+- Los 5 archivos estáticos nuevos (`comunidad-melody-landing.html`,
+  `agenda-admin.html`, `agenda-admin.css`, `agenda-admin.js`) y el
+  `admin.html` editado responden `200` con el `content-type` correcto.
+- **No se pudo probar visualmente en navegador** (sin herramienta de browser/
+  Playwright disponible en este entorno) — el diseño del panel y el fetch de
+  la landing quedan verificados por código y por las respuestas HTTP de
+  arriba, no por captura de pantalla. Queda pendiente una pasada visual
+  (Playwright o manual) en cuanto el usuario corra la migración.
+
+**Próximo paso**: 1) correr `db/migrations/010_agenda.sql` en el SQL Editor;
+2) reintentar la verificación end-to-end completa (crear/editar/reordenar/
+eliminar eventos desde `agenda-admin.html`, confirmar que aparecen en
+`comunidad-melody-landing.html` real); 3) validar visualmente el diseño del
+panel (capturas) antes de replicarlo en otros módulos; 4) reemplazar
+`https://TU-DOMINIO` del snippet de WordPress por el dominio real una vez
+confirmado dónde se sube `comunidad-melody-landing.html` en producción.
+
+---
+
 ### Sesión 2026-07-10 #20 — Etapa H, cont.: contenido de demostración de eventos
 
 Pedido inicial: "correr `seed-demo` contra producción porque el sitio recién

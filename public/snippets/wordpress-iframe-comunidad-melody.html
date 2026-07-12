@@ -1,0 +1,33 @@
+<!--
+  Snippet para WordPress/Elementor — embebe comunidad-melody-landing.html
+  (y a futuro los demás HTML de la landing) vía <iframe>, con auto-ajuste
+  de altura.
+
+  Cómo usarlo:
+  1. Pegar este bloque en un widget "HTML" de Elementor (o en el editor de
+     código de WordPress), en la página donde va "Comunidad Melody".
+  2. Reemplazar TU-DOMINIO por el dominio real donde está desplegado el
+     backend (ej: familias.melodymusicinstruments.com).
+  3. No hace falta configurar nada más: comunidad-melody-landing.html ya
+     postea su altura real vía postMessage, este script la escucha y
+     ajusta el <iframe> — sin scrollbar interno ni bordes visibles.
+-->
+<iframe
+  id="melody-comunidad-iframe"
+  src="https://TU-DOMINIO/comunidad-melody-landing.html"
+  style="width:100%; border:0; display:block; overflow:hidden;"
+  scrolling="no"
+  title="Comunidad Melody"
+></iframe>
+
+<script>
+  (function () {
+    var iframe = document.getElementById('melody-comunidad-iframe');
+    window.addEventListener('message', function (event) {
+      var data = event.data;
+      if (data && data.tipo === 'melody-agenda-resize' && typeof data.height === 'number') {
+        iframe.style.height = data.height + 'px';
+      }
+    });
+  })();
+</script>

@@ -50,6 +50,13 @@ el panel sin re-emitir JWTs. `super_admin` no está atado a una academia.
    nombre identificador y un código; la familia solo usa ese código (sin email visible)
    para reaccionar a eventos o enviar su emprendimiento. Por detrás sigue siendo una
    cuenta real de Supabase Auth (JWT, RLS) — ver §7.1.
+8. **Agenda (landing pública "Comunidad Melody")** — eventos simples (título, lugar,
+   fecha, hora) que el admin gestiona desde una pantalla propia (`agenda-admin.html`,
+   ver §6.3) y que se muestran dinámicamente en `comunidad-melody-landing.html`. Es un
+   módulo aparte de "Calendario de eventos" (§4.2): sin RSVP/reacciones/sponsors/
+   galería/testimonios ni relación con `vidriera_eventos` — es contenido simple para
+   una landing distinta (pensada para embeberse vía iframe en WordPress/Elementor),
+   no el calendario con participación de familias del portal principal.
 
 ## 5. Modelo de datos (`db/schema.sql`)
 
@@ -89,6 +96,13 @@ Todas con prefijo `vidriera_`:
 - `vidriera_rsvp`, `vidriera_reacciones` — asistencia y reacciones.
 - `vidriera_galeria`, `vidriera_testimonios` — fotos y testimonios por evento
   (`vidriera_testimonios.familia`: nombre de familia a mostrar junto a la cita, requerido).
+- `vidriera_agenda` (Etapa Agenda, `db/migrations/010_agenda.sql`) — eventos de la
+  landing pública "Comunidad Melody" (§4.8): `titulo`, `lugar`, `fecha` (date), `hora`
+  (time), `orden` (int, not null default 0 — a diferencia de
+  `vidriera_publicaciones.orden`, acá NO cae a un fallback por null: es solo desempate
+  manual entre eventos del mismo día, `fecha` manda en el orden público), `activo`
+  (boolean default true, soft hide). Tabla independiente de `vidriera_eventos` — no
+  comparte fila ni FK con el calendario del portal principal.
 
 > **`familia` como columna, no join a `vidriera_perfiles`**: aunque `vidriera_perfiles.nombre`
 > ya existe, esa tabla no es de lectura pública (RLS solo permite ver el propio perfil o
@@ -114,16 +128,18 @@ src/
     requireRole.js       requireRole(...roles): autorización por rol
     errorHandler.js      notFound + errorHandler centralizado
   routes/
-    index.js             monta /api/{publicaciones,eventos,admin,super-admin}
+    index.js             monta /api/{publicaciones,eventos,admin,super-admin,agenda}
     publicaciones.routes.js
     eventos.routes.js
     admin.routes.js      protegido con requireRole('admin')
     superadmin.routes.js protegido con requireRole('super_admin')
+    agenda.routes.js     público (GET /api/agenda); rutas admin viven en admin.routes.js
   repos/
     publicaciones.repo.js  vidriera_publicaciones + vidriera_publicaciones_ediciones
     eventos.repo.js         vidriera_eventos, sponsors, rsvp, reacciones, galería, testimonios
     superadmin.repo.js      vidriera_academias, vidriera_academia_modulos, vidriera_modulos
     uploads.repo.js         compresión (sharp) + subida a Supabase Storage
+    agenda.repo.js          vidriera_agenda (Agenda de la landing "Comunidad Melody")
 scripts/
   crear-usuario.mjs      alta manual de un usuario real (cliente o admin; Auth + vidriera_perfiles)
   setup-storage.mjs      alta idempotente del bucket vidriera-imagenes
@@ -137,7 +153,22 @@ db/
                           hay CLI/psql en este entorno para correrlas: se corren
                           a mano en el SQL Editor de Supabase y quedan documentadas acá)
 public/
-  index.html, css/, js/  frontend estático (vidriera de padres), sin build step
+  index.html, admin.html, super-admin.html, css/, js/  frontend estático original
+                         (vidriera de padres + paneles), sin build step
+  agenda-admin.html, css/agenda-admin.css, js/agenda-admin.js
+                         panel de Agenda — piloto de la nueva dirección visual, ver §6.3
+  eventos-admin.html, css/eventos-admin.css, js/eventos-admin.js
+                         panel de Eventos (calendario + RSVP) — misma dirección visual,
+                         primera pantalla que consume /api/admin/eventos (sesión #22)
+  sponsors-admin.html, css/sponsors-admin.css, js/sponsors-admin.js
+                         panel de Sponsors por evento — misma dirección visual,
+                         primera pantalla que consume /api/admin/eventos/:id/sponsors
+  comunidad-melody-landing.html
+                         landing pública "Comunidad Melody" (embebida vía iframe en
+                         WordPress/Elementor del cliente), servida como estático
+  snippets/wordpress-iframe-comunidad-melody.html
+                         snippet de referencia para pegar en Elementor (no se sirve
+                         como parte de la app, es documentación para el cliente)
 ```
 
 Los controladores viven en `src/controllers/` y usan `src/repos/` para hablar con
@@ -190,6 +221,61 @@ contra la dirección plana anterior sea inequívoca, no una recomendación de
 mejores prácticas de esta sesión.** Si en el futuro se quiere afinar (menos
 opacidad, menos blur), tocar solo los dos tokens de arriba: todas las tarjetas
 los referencian, no hay valores de sombra hardcodeados sueltos por archivo.
+
+### 6.3. Dirección visual del admin (cream/olive/clay + Playfair/Petit Formal Script)
+
+Nació como "piloto" acotado a Agenda (sesión #21) y se confirmó/extendió al
+resto del panel de administración en la sesión #22: paleta cream
+(`#F7F3EA`/`#FBF9F3`), olive (`#38452B`), clay (`#C97A55`), tipografía
+Playfair Display (títulos) + Petit Formal Script (flourish/eyebrow) + Inter
+(texto de panel) — misma paleta que la landing pública "Comunidad Melody".
+Hoy cubre las 4 pantallas de administración que existen:
+
+| Pantalla | Archivos | Prefijo CSS |
+|---|---|---|
+| Panel principal (moderación, estadísticas, orden, textos, familias) | `admin.html`/`admin.css`/`admin.js` | `.mm-*` |
+| Agenda | `agenda-admin.html`/`css/agenda-admin.css`/`js/agenda-admin.js` | `.ag-*` |
+| Eventos (calendario + RSVP) | `eventos-admin.html`/`css/eventos-admin.css`/`js/eventos-admin.js` | `.ev-*` |
+| Sponsors | `sponsors-admin.html`/`css/sponsors-admin.css`/`js/sponsors-admin.js` | `.sp-*` |
+
+**Regla que se mantiene deliberadamente**: cada pantalla tiene su propia hoja
+de estilo con sus propios tokens `:root` (mismos valores, copiados, no
+importados/compartidos) y su propio prefijo de clases — para que iterar el
+diseño de una no arrastre riesgo de regresión visual sobre las demás. El
+único puente entre pantallas es funcional, no visual: todas comparten la
+misma clave de `localStorage` (`mm_admin_auth_session`) para no pedir un
+segundo login, y `admin.html` tiene links (`Agenda ↗`, `Eventos ↗`,
+`Sponsors ↗`) en el sidebar que abren cada una en una página aparte (no
+secciones embebidas).
+
+**Técnica usada para reskinear `admin.html` sin tocar `styles.css`**
+(compartido con `index.html` y `super-admin.html`, fuera de alcance): las
+variables de `:root` que define `public/css/styles.css` (`--ink`, `--accent`,
+`--font-serif`, etc.) se reescriben con los nuevos valores dentro del propio
+`admin.css` — que se carga después en el `<link>` de `admin.html`, así que
+sus valores ganan la cascada — más un puñado de overrides puntuales para los
+pocos colores que `styles.css` tenía hardcodeados en vez de variabilizados
+(`.mm-modal`, `.mm-btn-fill:hover`, `.mm-btn-danger`, `.mm-form-error`,
+`.mm-status-pill.rejected`). Es el mismo patrón a seguir si se necesita
+reskinear cualquier otra pantalla que use `styles.css` sin tocarlo
+directamente.
+
+**Componente reutilizado**: modal centrado (`.mm-modal`) → panel lateral
+deslizante (`transform: translateX`, overlay con fade) para alta/edición de
+un solo registro — Agenda lo estrenó, `admin.html` lo sumó para "Crear
+publicación" y "Familias" (`.mm-panel-overlay`/`.mm-side-panel`, clases
+propias, no comparten CSS con `.ag-overlay`/`.ag-panel` por el mismo
+criterio de arriba). Eventos y Sponsors nacieron ya con este patrón
+(`.ev-overlay`/`.ev-panel`, sin panel lateral en Sponsors — ahí la edición es
+un checklist inline, no un alta/edición de un registro puntual).
+
+**Eventos y Sponsors son UI nueva sobre endpoints que ya existían desde
+Etapa 1** (`/api/admin/eventos`, `/api/admin/eventos/:id/sponsors`,
+`/api/eventos/:id/sponsors` público) — hasta la sesión #22 nunca habían
+tenido ningún frontend, a pesar de estar documentados como "implementados"
+en la tabla de Etapa 1 de `ESTADO.md` (esa tabla describe el backend, no
+implica que existiera pantalla). Ningún endpoint nuevo se agregó para
+construirlas.
 
 ## 7. Seguridad y datos
 

@@ -324,7 +324,12 @@ function renderPreview() {
   const item = queueItems.find((i) => i.id === selectedId);
 
   if (!item) {
-    pane.innerHTML = '<p class="mm-empty">No hay publicaciones pendientes de revisión.</p>';
+    pane.innerHTML = `
+      <div class="mm-empty-rich">
+        <div class="mm-empty-icon">✨</div>
+        <h4>Todo al día</h4>
+        <p>No hay publicaciones esperando revisión. En cuanto una familia envíe su emprendimiento, va a aparecer acá.</p>
+      </div>`;
     return;
   }
 
@@ -407,7 +412,12 @@ async function loadStats() {
 
   const items = data.por_publicacion;
   if (items.length === 0) {
-    wrap.innerHTML = '<p class="mm-empty">Todavía no hay publicaciones aprobadas con vistas.</p>';
+    wrap.innerHTML = `
+      <div class="mm-empty-rich">
+        <div class="mm-empty-icon">📈</div>
+        <h4>Sin estadísticas todavía</h4>
+        <p>En cuanto una publicación aprobada reciba su primera visita en la vidriera pública, va a aparecer acá con su conteo.</p>
+      </div>`;
     return;
   }
 
@@ -455,7 +465,12 @@ function renderOrdenList() {
   const wrap = document.getElementById('ordenList');
 
   if (currentOrder.length === 0) {
-    wrap.innerHTML = '<p class="mm-empty">Todavía no hay publicaciones aprobadas para ordenar.</p>';
+    wrap.innerHTML = `
+      <div class="mm-empty-rich">
+        <div class="mm-empty-icon">🗂️</div>
+        <h4>Nada para ordenar todavía</h4>
+        <p>Apenas apruebes la primera publicación desde la Cola de aprobación, va a aparecer acá para que la arrastres a su lugar.</p>
+      </div>`;
     renderOverrideBanner();
     updateUndoRedoButtons();
     return;
@@ -769,7 +784,12 @@ async function loadFamilias() {
 function renderFamilias() {
   const wrap = document.getElementById('familiasList');
   if (familias.length === 0) {
-    wrap.innerHTML = '<p class="mm-empty">Todavía no hay familias dadas de alta.</p>';
+    wrap.innerHTML = `
+      <div class="mm-empty-rich">
+        <div class="mm-empty-icon">👪</div>
+        <h4>Ninguna familia dada de alta</h4>
+        <p>Sumá la primera para que pueda enviar su emprendimiento y reaccionar a los eventos con un simple código, sin login tradicional.</p>
+      </div>`;
     return;
   }
 
@@ -805,18 +825,29 @@ async function toggleEstadoFamilia(id, activoActual) {
   await loadFamilias();
 }
 
-// --- Formulario de alta/edición (mismo <div> para ambos casos) ---
-const familiaForm = document.getElementById('familiaForm');
+// --- Formulario de alta/edición (mismo panel lateral para ambos casos) ---
+const familiaOverlay = document.getElementById('familiaOverlay');
+const familiaPanel = document.getElementById('familiaPanel');
 const familiaFormError = document.getElementById('familiaFormError');
+
+function abrirPanelFamilia() {
+  familiaOverlay.hidden = false;
+  familiaPanel.hidden = false;
+  requestAnimationFrame(() => {
+    familiaOverlay.classList.add('mm-show');
+    familiaPanel.classList.add('mm-show');
+  });
+}
 
 function abrirFormularioNuevaFamilia() {
   familiaEnEdicion = null;
+  document.getElementById('familiaFormTitle').textContent = 'Nueva familia';
   document.getElementById('familiaFormIdOriginal').value = '';
   document.getElementById('familiaFormNombre').value = '';
   document.getElementById('familiaFormNombre').disabled = false;
   document.getElementById('familiaFormCodigo').value = '';
   familiaFormError.hidden = true;
-  familiaForm.hidden = false;
+  abrirPanelFamilia();
   document.getElementById('familiaFormNombre').focus();
 }
 
@@ -824,22 +855,30 @@ function abrirFormularioFamilia(id) {
   const f = familias.find((x) => x.id === id);
   if (!f) return;
   familiaEnEdicion = id;
+  document.getElementById('familiaFormTitle').textContent = 'Cambiar código';
   document.getElementById('familiaFormIdOriginal').value = id;
   document.getElementById('familiaFormNombre').value = f.nombre_familia;
   document.getElementById('familiaFormNombre').disabled = true; // esta pantalla solo permite cambiar el código
   document.getElementById('familiaFormCodigo').value = '';
   familiaFormError.hidden = true;
-  familiaForm.hidden = false;
+  abrirPanelFamilia();
   document.getElementById('familiaFormCodigo').focus();
 }
 
 function cerrarFormularioFamilia() {
-  familiaForm.hidden = true;
+  familiaOverlay.classList.remove('mm-show');
+  familiaPanel.classList.remove('mm-show');
+  setTimeout(() => {
+    familiaOverlay.hidden = true;
+    familiaPanel.hidden = true;
+  }, 300);
   familiaEnEdicion = null;
 }
 
 document.getElementById('newFamiliaBtn').addEventListener('click', abrirFormularioNuevaFamilia);
 document.getElementById('familiaFormCancelBtn').addEventListener('click', cerrarFormularioFamilia);
+document.getElementById('familiaFormCloseBtn').addEventListener('click', cerrarFormularioFamilia);
+familiaOverlay.addEventListener('click', cerrarFormularioFamilia);
 
 document.getElementById('familiaFormSaveBtn').addEventListener('click', async () => {
   const codigo = document.getElementById('familiaFormCodigo').value.trim();
@@ -876,7 +915,8 @@ document.getElementById('familiaFormSaveBtn').addEventListener('click', async ()
 // SÍ es un campo manual: no hay ninguna sesión de familia detrás de un alta
 // hecha por el admin, así que no hay de dónde tomarlo automáticamente.
 // ---------------------------------------------------------------------------
-const crearPubBackdrop = document.getElementById('crearPubBackdrop');
+const crearPubOverlay = document.getElementById('crearPubOverlay');
+const crearPubPanel = document.getElementById('crearPubPanel');
 const crearPubForm = document.getElementById('crearPubForm');
 const crearPubError = document.getElementById('crearPubError');
 let crearPubLogoUrl = null;
@@ -885,6 +925,9 @@ let crearPubImagenUrl = null;
 document.getElementById('crearPubCategoria').innerHTML =
   CATEGORIAS.map((c) => `<option value="${c.clave}">${escapeHtml(c.nombre)}</option>`).join('');
 
+// Panel lateral deslizante (antes modal centrado): mismo patrón que
+// public/js/agenda-admin.js — se saca [hidden] y recién en el frame
+// siguiente se agrega la clase que dispara la transición CSS.
 function abrirCrearPubModal() {
   crearPubForm.reset();
   crearPubError.hidden = true;
@@ -892,16 +935,27 @@ function abrirCrearPubModal() {
   crearPubImagenUrl = null;
   document.getElementById('crearPubLogoPreview').hidden = true;
   document.getElementById('crearPubPortadaPreview').hidden = true;
-  crearPubBackdrop.hidden = false;
+  crearPubOverlay.hidden = false;
+  crearPubPanel.hidden = false;
+  requestAnimationFrame(() => {
+    crearPubOverlay.classList.add('mm-show');
+    crearPubPanel.classList.add('mm-show');
+  });
 }
 
 function cerrarCrearPubModal() {
-  crearPubBackdrop.hidden = true;
+  crearPubOverlay.classList.remove('mm-show');
+  crearPubPanel.classList.remove('mm-show');
+  setTimeout(() => {
+    crearPubOverlay.hidden = true;
+    crearPubPanel.hidden = true;
+  }, 300);
 }
 
 document.getElementById('crearPublicacionBtn').addEventListener('click', abrirCrearPubModal);
 document.getElementById('crearPubCancelBtn').addEventListener('click', cerrarCrearPubModal);
-crearPubBackdrop.addEventListener('click', (e) => { if (e.target === crearPubBackdrop) cerrarCrearPubModal(); });
+document.getElementById('crearPubCloseBtn').addEventListener('click', cerrarCrearPubModal);
+crearPubOverlay.addEventListener('click', cerrarCrearPubModal);
 
 async function subirArchivo(file, tipo) {
   const form = new FormData();

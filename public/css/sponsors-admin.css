@@ -1,0 +1,173 @@
+/* =====================================================================
+   Sponsors · Melody Music — panel de gestión
+   Misma dirección visual que public/agenda-admin.html/css y
+   public/eventos-admin.html/css, con su propia hoja e ids .sp-* — ver
+   ARQUITECTURA.md §6.3 (cada pantalla mantiene su propio archivo).
+   ===================================================================== */
+
+:root {
+  --cream: #F7F3EA;
+  --cream-2: #FBF9F3;
+  --ink: #2B2B24;
+  --olive: #4A5A3A;
+  --olive-dark: #38452B;
+  --olive-soft: #7C8A66;
+  --olive-tint: #EAEEE3;
+  --clay: #C97A55;
+  --clay-tint: #F3E1D5;
+  --line: #E4DDCB;
+  --muted: #928d7e;
+  --danger: #B0503A;
+  --shadow-soft: 0 10px 24px rgba(60, 50, 20, .08);
+  --shadow-lift: 0 18px 40px rgba(40, 34, 14, .14);
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+.display { font-family: 'Playfair Display', serif; }
+.script { font-family: 'Petit Formal Script', cursive; }
+button { font-family: inherit; }
+
+/* ---------- Login gate ---------- */
+.sp-gate[hidden] { display: none; }
+.sp-gate {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--cream); padding: 24px;
+}
+.sp-login-card {
+  width: 100%; max-width: 380px; background: var(--cream-2);
+  border: 1px solid var(--line); border-radius: 20px;
+  padding: 40px 36px; box-shadow: var(--shadow-lift);
+}
+.sp-login-eyebrow { font-size: 16px; color: var(--clay); margin-bottom: 2px; }
+.sp-login-title { font-size: 34px; font-weight: 600; margin: 0 0 6px; color: var(--olive-dark); }
+.sp-login-sub { font-size: 13px; color: var(--muted); margin: 0 0 24px; line-height: 1.5; }
+.sp-login-back { display: block; margin-top: 18px; font-size: 12.5px; color: var(--muted); text-align: center; text-decoration: none; }
+.sp-login-back:hover { color: var(--olive-dark); }
+
+.sp-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.sp-field span { font-size: 12px; font-weight: 600; color: var(--olive-dark); }
+.sp-field input {
+  font-family: inherit; font-size: 14px; padding: 10px 13px;
+  border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+  outline: none; transition: border-color .15s ease;
+}
+.sp-field input:focus { border-color: var(--clay); }
+
+.sp-form-error {
+  font-size: 12.5px; color: var(--danger); background: #F7E7E0;
+  border-radius: 8px; padding: 8px 12px; margin: 0 0 14px;
+}
+
+/* ---------- Buttons ---------- */
+.sp-btn-solid, .sp-btn-outline {
+  font-size: 13px; font-weight: 700; border-radius: 100px; cursor: pointer;
+  padding: 10px 20px; border: none; transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.sp-btn-solid { background: var(--olive-dark); color: #fff; }
+.sp-btn-solid:hover { transform: translateY(-1px); box-shadow: var(--shadow-soft); }
+.sp-btn-solid:disabled { opacity: .5; cursor: default; transform: none; box-shadow: none; }
+.sp-btn-outline { background: transparent; color: var(--olive-dark); border: 1px solid var(--line); }
+
+/* ---------- Shell ---------- */
+.sp-shell[hidden] { display: none; }
+
+.sp-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 40px; background: var(--cream-2); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 20;
+}
+.sp-brand { display: flex; align-items: baseline; gap: 10px; }
+.sp-brand .sp-eyebrow { font-size: 14px; color: var(--clay); }
+.sp-brand h1 { font-size: 22px; font-weight: 600; margin: 0; color: var(--olive-dark); }
+.sp-topbar-right { display: flex; align-items: center; gap: 18px; }
+.sp-link-ghost { font-size: 13px; font-weight: 600; color: var(--ink); opacity: .8; text-decoration: none; }
+.sp-link-ghost:hover { opacity: 1; color: var(--olive-dark); }
+.sp-avatar {
+  width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--olive-dark); color: #fff; font-weight: 700; font-size: 13px;
+}
+
+.sp-main { max-width: 1000px; margin: 0 auto; padding: 40px 24px 100px; }
+.sp-main-header h2 { font-size: 26px; font-weight: 600; margin: 0 0 6px; color: var(--ink); }
+.sp-sub { font-size: 13.5px; color: var(--muted); margin: 0 0 28px; max-width: 640px; line-height: 1.5; }
+
+.sp-layout { display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; }
+
+.sp-col-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 10px; }
+
+.sp-events-list { display: flex; flex-direction: column; gap: 8px; }
+.sp-event-item {
+  display: block; width: 100%; text-align: left; border: 1px solid var(--line); background: var(--cream-2);
+  border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: all .15s ease;
+}
+.sp-event-item:hover { border-color: var(--olive-soft); }
+.sp-event-item.sp-active { border-color: var(--olive-dark); background: var(--olive-tint); }
+.sp-event-item .sp-event-name { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
+.sp-event-item .sp-event-date { font-size: 11.5px; color: var(--muted); }
+.sp-event-item .sp-event-count { font-size: 11px; color: var(--olive-dark); margin-top: 4px; }
+
+.sp-sponsors-col { min-width: 0; }
+
+.sp-panel {
+  background: var(--cream-2); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 24px; box-shadow: var(--shadow-soft);
+}
+.sp-panel-title { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 600; margin: 0 0 4px; color: var(--ink); }
+.sp-panel-sub { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; }
+
+.sp-checklist { display: flex; flex-direction: column; gap: 4px; max-height: 420px; overflow-y: auto; margin-bottom: 18px; }
+.sp-check-row {
+  display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 10px; cursor: pointer;
+  transition: background .15s ease;
+}
+.sp-check-row:hover { background: var(--olive-tint); }
+.sp-check-row input { width: 17px; height: 17px; accent-color: var(--olive-dark); cursor: pointer; }
+.sp-check-thumb {
+  width: 34px; height: 34px; border-radius: 8px; flex: none; background-size: cover; background-position: center;
+  background-color: var(--line);
+}
+.sp-check-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.sp-check-cat { font-size: 11px; color: var(--muted); }
+
+.sp-panel-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ---------- Estados vacíos ---------- */
+.sp-empty {
+  text-align: center; padding: 60px 24px; background: var(--cream-2);
+  border: 1px dashed var(--line); border-radius: 20px;
+}
+.sp-empty .sp-empty-icon {
+  width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%;
+  background: var(--clay-tint); display: flex; align-items: center; justify-content: center; font-size: 24px;
+}
+.sp-empty h3 { font-size: 18px; font-weight: 600; margin: 0 0 8px; color: var(--olive-dark); }
+.sp-empty p { font-size: 13px; color: var(--muted); margin: 0; max-width: 320px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+
+.sp-destacado-note {
+  margin-top: 18px; font-size: 12.5px; color: var(--muted); line-height: 1.6;
+  background: var(--olive-tint); border-radius: 12px; padding: 14px 16px;
+}
+.sp-destacado-note strong { display: block; color: var(--olive-dark); margin-bottom: 4px; font-size: 13px; }
+.sp-destacado-note a { color: var(--olive-dark); font-weight: 700; }
+
+/* ---------- Toast ---------- */
+.sp-toast[hidden] { display: none; }
+.sp-toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  background: var(--olive-dark); color: #fff; font-size: 13px; font-weight: 600;
+  padding: 12px 22px; border-radius: 100px; box-shadow: var(--shadow-lift); z-index: 60;
+  animation: spToastIn .2s ease;
+}
+@keyframes spToastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-event-item, .sp-check-row, .sp-btn-solid, .sp-toast { transition: none; animation: none; }
+}

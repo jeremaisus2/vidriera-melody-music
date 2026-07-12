@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sponsors · Melody Music</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Petit+Formal+Script&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/sponsors-admin.css">
+</head>
+<body>
+
+<div class="sp-gate" id="loginGate">
+  <div class="sp-login-card">
+    <div class="sp-login-eyebrow script">Panel de gestión</div>
+    <h1 class="sp-login-title display">Sponsors</h1>
+    <p class="sp-login-sub">Iniciá sesión con tu cuenta de administrador de Melody Music.</p>
+    <form id="loginForm">
+      <label class="sp-field">
+        <span>Email</span>
+        <input type="email" name="email" required autocomplete="username">
+      </label>
+      <label class="sp-field">
+        <span>Contraseña</span>
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <p class="sp-form-error" id="loginError" hidden></p>
+      <button type="submit" class="sp-btn-solid" style="width:100%;">Ingresar</button>
+    </form>
+    <a class="sp-login-back" href="/admin.html">← Volver al panel de administración</a>
+  </div>
+</div>
+
+<div id="spShell" class="sp-shell" hidden>
+
+  <header class="sp-topbar">
+    <div class="sp-brand">
+      <span class="sp-eyebrow script">Panel de gestión</span>
+      <h1 class="display">Sponsors</h1>
+    </div>
+    <div class="sp-topbar-right">
+      <a class="sp-link-ghost" href="/eventos-admin.html">Eventos ↗</a>
+      <a class="sp-link-ghost" href="/admin.html">Panel de administración</a>
+      <button type="button" class="sp-avatar" id="avatarBtn" title="Cerrar sesión">A</button>
+    </div>
+  </header>
+
+  <main class="sp-main">
+    <div class="sp-main-header">
+      <h2 class="display">Sponsors por evento</h2>
+      <p class="sp-sub">Elegí un evento y marcá qué emprendimientos lo acompañan. Los sponsors de un evento se muestran en su página pública y son los que rotan como destacado de la semana en la vidriera.</p>
+    </div>
+
+    <div class="sp-layout">
+      <div class="sp-events-col">
+        <div class="sp-col-label">Eventos</div>
+        <div id="eventosList" class="sp-events-list"></div>
+      </div>
+
+      <div class="sp-sponsors-col">
+        <div id="sponsorsPane">
+          <div class="sp-empty">
+            <div class="sp-empty-icon">🤝</div>
+            <h3>Elegí un evento</h3>
+            <p>Seleccioná un evento de la lista para ver y editar sus sponsors.</p>
+          </div>
+        </div>
+
+        <div class="sp-destacado-note">
+          <strong>¿Cómo se relaciona esto con el destacado de la vidriera?</strong>
+          Los sponsors del evento más próximo (o el que acaba de pasar) rotan automáticamente
+          como destacado en la vidriera pública. Si en cambio querés fijar manualmente qué
+          publicación se destaca sin depender de ningún evento, hacelo desde
+          <a href="/admin.html">Panel de administración → Orden de la vidriera</a>.
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="sp-toast" id="toast" hidden></div>
+
+<script src="/config.js"></script>
+<script type="module" src="/js/sponsors-admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comunidad Melody</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Petit+Formal+Script&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --cream: #F7F3EA;
+    --cream-2: #FBF9F3;
+    --ink: #2B2B24;
+    --olive: #4A5A3A;
+    --olive-dark: #38452B;
+    --olive-soft: #7C8A66;
+    --clay: #C97A55;
+    --line: #E4DDCB;
+    --gold: #B8935A;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Inter', sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  a{text-decoration:none; color:inherit;}
+  img{display:block; max-width:100%;}
+
+  .script{font-family:'Petit Formal Script', cursive;}
+  .display{font-family:'Playfair Display', serif;}
+
+  /* ---------- NAV ---------- */
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 22px 48px;
+    background:var(--cream-2);
+    border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:50;
+  }
+  .logo{display:flex; align-items:center; gap:10px;}
+  .logo-mark{width:38px; height:38px; object-fit:contain;}
+  .logo-mark-footer{width:34px; height:34px; object-fit:contain; filter:brightness(0) invert(1);}
+  .logo-text{line-height:1;}
+  .logo-text .name{font-family:'Playfair Display', serif; font-size:19px; font-style:italic; font-weight:600; color:var(--ink) !important;}
+  .logo-text .sub{font-size:9px; letter-spacing:2.5px; color:var(--olive-soft); font-weight:600;}
+  nav ul{display:flex; gap:34px; list-style:none;}
+  nav a{font-size:14.5px; font-weight:500; color:var(--ink); opacity:.85; transition:opacity .2s;}
+  nav a:hover{opacity:1; color:var(--olive-dark);}
+  .nav-right{display:flex; align-items:center; gap:16px;}
+  .btn-ghost{
+    border:1px solid var(--ink); border-radius:100px; padding:9px 20px;
+    font-size:13.5px; font-weight:600;
+  }
+  .icon-btn{
+    width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--line); font-size:15px;
+  }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    position:relative;
+    min-height:280px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    padding:36px 24px 46px;
+    color:#fff;
+    overflow:hidden;
+  }
+  .hero-bg{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+    transform:scale(1.03);
+  }
+  .hero::before{
+    content:""; position:absolute; inset:0; z-index:1;
+    background:linear-gradient(180deg, rgba(15,18,10,.55), rgba(10,12,7,.78));
+  }
+  .hero-eyebrow, .hero h1, .hero-tag, .hero-divider, .hero-copy{position:relative; z-index:2;}
+  .hero-credit{
+    position:absolute; bottom:14px; left:50%; transform:translateX(-50%); z-index:2;
+    font-size:10.5px; color:rgba(255,255,255,.55); font-family:'Inter',sans-serif;
+  }
+  .hero-eyebrow{font-size:15px; letter-spacing:1px; font-style:italic; margin-bottom:2px; font-family:'Playfair Display',serif; color:#fff !important;}
+  .hero h1{font-size:52px; font-weight:600; margin-bottom:14px; text-shadow:0 2px 18px rgba(0,0,0,.25); color:#fff !important;}
+  .hero-tag{font-size:18px; font-weight:400; margin-bottom:20px; opacity:.95; color:#fff !important;}
+  .hero-divider{font-size:20px; margin:14px 0; opacity:.8; color:#fff !important;}
+  .hero-copy{max-width:520px; font-size:15px; line-height:1.9; opacity:.92; color:#fff !important;}
+
+  /* ---------- PROMO EVENTO DESTACADO ---------- */
+  .featured-event{
+    max-width:1200px; margin:34px auto 10px; padding:0 48px;
+  }
+  .featured-event .fe-card{
+    display:flex; align-items:center; gap:28px; background:#0B1830; border-radius:20px;
+    padding:26px 32px; color:#EDE6D6; overflow:hidden; position:relative; cursor:pointer;
+    transition:transform .25s ease, box-shadow .25s ease;
+  }
+  .featured-event .fe-card:hover{transform:translateY(-3px); box-shadow:0 20px 40px rgba(20,20,10,.18);}
+  .featured-event .fe-card:focus-visible{outline:2px solid var(--gold-fe, #E4C87C); outline-offset:3px;}
+
+  .youtube-banner{
+    max-width:1200px; margin:14px auto 0; padding:0 48px;
+  }
+  .youtube-banner a{
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    background:var(--cream-2); border:1px solid var(--line); border-radius:16px;
+    padding:16px 24px; font-size:14.5px; font-weight:700; color:var(--ink);
+    transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .youtube-banner a:hover{transform:translateY(-2px); box-shadow:0 12px 24px rgba(60,50,20,.08); border-color:#e6b3a3;}
+  .youtube-banner .yt-icon{
+    height:22px; width:auto; flex:0 0 auto;
+  }
+  @media (max-width: 780px){
+    .youtube-banner{padding:0 20px; margin:10px auto 0;}
+    .youtube-banner a{padding:14px 18px; font-size:13.5px;}
+  }
+  .featured-event .fe-thumb{
+    width:88px; height:118px; border-radius:10px; overflow:hidden; flex:0 0 auto;
+    border:1px solid rgba(201,162,83,.4);
+  }
+  .featured-event .fe-thumb img{width:100%; height:100%; object-fit:cover; object-position:top;}
+  .featured-event .fe-body{flex:1;}
+  .featured-event .fe-eyebrow{font-size:11px; letter-spacing:2px; color:#C9A253; text-transform:uppercase; margin-bottom:4px;}
+  .featured-event h3{font-family:'Playfair Display',serif; font-size:22px; margin-bottom:4px; color:#fff !important;}
+  .featured-event p{font-size:12.5px; color:#B9C7DA;}
+  .featured-event .fe-cta{
+    flex:0 0 auto; font-size:12.5px; font-weight:700; color:#0B1830; background:#E4C87C;
+    padding:10px 18px; border-radius:100px; white-space:nowrap;
+  }
+  @media (max-width: 780px){
+    .featured-event{padding:0 20px; margin:20px auto 4px;}
+    .featured-event .fe-card{flex-direction:column; text-align:center; padding:22px 20px;}
+    .featured-event .fe-thumb{width:100px; height:135px;}
+    .featured-event .fe-cta{width:100%;}
+  }
+  .quick-icons{
+    display:grid; grid-template-columns:repeat(9, 1fr); gap:16px;
+    max-width:1200px; margin:28px auto 0; padding:0 48px 56px; position:relative; z-index:5;
+  }
+  .qi-card{
+    background:var(--cream-2); border:1px solid var(--line); border-radius:16px;
+    padding:22px 12px 18px; text-align:center;
+    box-shadow:0 10px 24px rgba(60,50,20,.06);
+    transition:transform .2s ease;
+  }
+  .qi-card:hover{transform:translateY(-4px);}
+  .qi-icon{
+    width:44px; height:44px; margin:0 auto 12px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+    background:#EFE9D8;
+  }
+  .qi-card h4{font-size:13.5px; font-weight:700; margin-bottom:3px; color:var(--ink) !important;}
+  .qi-card p{font-size:11px; color:#6b6a5e;}
+
+  /* ---------- SECTION HEADERS ---------- */
+  .section{max-width:1200px; margin:0 auto; padding:10px 48px 56px;}
+  .section-head{
+    display:flex; align-items:baseline; justify-content:space-between; margin-bottom:22px;
+  }
+  .section-head h2{font-size:22px; font-family:'Playfair Display',serif; font-weight:600; display:flex; align-items:center; gap:8px; color:var(--ink) !important;}
+  .section-head a{font-size:13px; font-weight:600; color:var(--olive-dark);}
+
+  /* ---------- NEWS FEED ---------- */
+  .news-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:16px;}
+  .news-card{background:var(--cream-2); border:1px solid var(--line); border-radius:14px; overflow:hidden; transition:transform .25s ease, box-shadow .25s ease;}
+  .news-card:hover{transform:translateY(-3px); box-shadow:0 14px 28px rgba(60,50,20,.10);}
+  .news-photo{
+    height:110px; overflow:hidden; position:relative;
+  }
+  .news-photo img{
+    width:100%; height:100%; object-fit:cover; transition:transform .5s ease;
+  }
+  .news-card:hover .news-photo img{transform:scale(1.06);}
+  .news-body{padding:14px;}
+  .news-tag{font-size:9.5px; font-weight:700; letter-spacing:.6px; color:var(--olive-dark); text-transform:uppercase;}
+  .news-body h4{font-size:14px; margin:6px 0 4px; font-weight:700; line-height:1.3; color:var(--ink) !important;}
+  .news-body p{font-size:11.5px; color:#6b6a5e; line-height:1.5; margin-bottom:10px;}
+  .news-meta{display:flex; justify-content:space-between; font-size:11px; color:#9a9686;}
+
+  /* ---------- THREE COLUMN: STATS / WALL / AGENDA ---------- */
+  .grid3{display:grid; grid-template-columns:1fr 1.3fr 1fr; gap:20px;}
+  .panel{background:var(--cream-2); border:1px solid var(--line); border-radius:16px; padding:24px;}
+  .panel h3{font-family:'Playfair Display',serif; font-size:18px; font-weight:600; margin-bottom:16px; color:var(--ink) !important;}
+
+  .stat-list{list-style:none; margin-bottom:18px;}
+  .stat-list li{display:flex; align-items:center; gap:10px; padding:7px 0; font-size:13.5px;}
+  .stat-list b{font-size:14.5px; min-width:30px;}
+  .btn-solid{
+    display:inline-block; background:var(--olive-dark); color:#fff; border:none; border-radius:100px;
+    padding:11px 20px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+
+  .wall-post{border-bottom:1px solid var(--line); padding:12px 0;}
+  .wall-post:last-child{border-bottom:none;}
+  .wall-tag{
+    display:inline-block; font-size:9.5px; font-weight:700; padding:3px 9px; border-radius:100px;
+    margin-bottom:6px; letter-spacing:.4px;
+  }
+  .wall-tag.necesito{background:#E9D9CB; color:#8a4b2c;}
+  .wall-tag.ofrezco{background:#EAE3C4; color:#7a6a1f;}
+  .wall-tag.agradezco{background:#DCE6CE; color:var(--olive-dark);}
+  .wall-post p{font-size:13px; line-height:1.5; margin-bottom:6px;}
+  .wall-meta{font-size:11px; color:#9a9686;}
+
+  .agenda-row{display:flex; gap:14px; padding:11px 0; border-bottom:1px solid var(--line); align-items:center;}
+  .agenda-row:last-child{border-bottom:none;}
+  .agenda-date{text-align:center; min-width:38px;}
+  .agenda-date .d{font-size:17px; font-weight:700; color:var(--clay); line-height:1;}
+  .agenda-date .m{font-size:9px; letter-spacing:1px; color:#9a9686;}
+  .agenda-info h5{font-size:13px; font-weight:700; margin-bottom:2px;}
+  .agenda-info span{font-size:11px; color:#9a9686;}
+  .agenda-time{margin-left:auto; font-size:12px; color:#6b6a5e; font-weight:600;}
+  .agenda-skeleton{height:34px; width:100%; border-radius:8px; background:linear-gradient(90deg, var(--line) 25%, #efe9d9 37%, var(--line) 63%); background-size:400% 100%; animation:agendaShimmer 1.4s ease infinite;}
+  @keyframes agendaShimmer{0%{background-position:100% 0;} 100%{background-position:0 0;}}
+  .agenda-empty{padding:14px 0; font-size:12.5px; color:#9a9686;}
+  @media (prefers-reduced-motion: reduce){ .agenda-skeleton{animation:none;} }
+
+  /* ---------- FOUR CARDS ---------- */
+  .four-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  .promo-card{position:relative; border-radius:16px; overflow:hidden; height:210px; color:#fff; display:flex; align-items:flex-end; transition:transform .25s ease;}
+  .promo-card:hover{transform:translateY(-4px);}
+  .promo-card .bg{position:absolute; inset:0;}
+  .promo-card .bg img{width:100%; height:100%; object-fit:cover; transition:transform .5s ease;}
+  .promo-card:hover .bg img{transform:scale(1.06);}
+  .promo-card .overlay{position:absolute; inset:0; background:linear-gradient(0deg, rgba(0,0,0,.65), transparent 60%);}
+  .promo-content{position:relative; padding:18px; z-index:2;}
+  .promo-content h4{font-family:'Playfair Display',serif; font-size:17px; margin-bottom:5px; color:#fff !important;}
+  .promo-content p{font-size:11.5px; opacity:.85; margin-bottom:12px; line-height:1.4;}
+  .btn-mini{background:var(--olive-dark); color:#fff; border:none; border-radius:100px; padding:7px 14px; font-size:11.5px; font-weight:600;}
+
+  /* ---------- NEWSLETTER ---------- */
+  .newsletter{
+    display:flex; align-items:center; justify-content:space-between;
+    background:#EFEADC; padding:36px 48px; margin:0 24px 24px; border-radius:20px;
+  }
+  .newsletter .script{font-size:20px;}
+  .newsletter-form{display:flex; gap:10px;}
+  .newsletter-form input{
+    border:1px solid var(--line); border-radius:100px; padding:11px 18px; font-size:13px; width:260px;
+    background:#fff;
+  }
+
+  footer{background:var(--olive-dark); color:#EDE9DA; padding:34px 48px; display:flex; justify-content:space-between; align-items:center;}
+  footer .foot-left{display:flex; gap:16px; align-items:center;}
+  footer .foot-links{display:flex; gap:22px; font-size:13px; opacity:.85;}
+  footer .socials{display:flex; gap:10px;}
+  footer .socials span, footer .socials a{
+    width:34px; height:34px; border:1px solid rgba(255,255,255,.3); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:13px; overflow:hidden;
+  }
+  footer .socials img{width:18px; height:18px; object-fit:contain; filter:brightness(0) invert(1);}
+
+  /* ---------- SCROLL REVEAL ---------- */
+  .reveal{opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease;}
+  .reveal.show{opacity:1; transform:translateY(0);}
+  @media (prefers-reduced-motion: reduce){
+    .reveal{opacity:1; transform:none; transition:none;}
+    .news-card, .promo-card, .qi-card{transition:none;}
+  }
+
+  /* ---------- MOBILE NAV ---------- */
+  .hamburger{display:none; flex-direction:column; gap:4px; width:22px; cursor:pointer; background:none; border:none;}
+  .hamburger span{height:2px; background:var(--ink); border-radius:2px; transition:all .25s ease;}
+  .mobile-nav{
+    display:none; flex-direction:column; gap:2px; background:var(--cream-2);
+    border-bottom:1px solid var(--line); padding:10px 24px 18px; position:sticky; top:69px; z-index:49;
+  }
+  .mobile-nav.open{display:flex;}
+  .mobile-nav a{padding:12px 0; font-size:15px; font-weight:500; border-bottom:1px solid var(--line);}
+  .mobile-nav a:last-child{border-bottom:none;}
+
+  /* ---------- TABLET ---------- */
+  @media (max-width: 1100px){
+    .quick-icons{grid-template-columns:repeat(5,1fr);}
+    .news-grid{grid-template-columns:repeat(3,1fr);}
+    .four-grid{grid-template-columns:repeat(2,1fr);}
+  }
+
+  /* ---------- MOBILE ---------- */
+  @media (max-width: 780px){
+    header{padding:16px 20px;}
+    nav{display:none;}
+    .hamburger{display:flex;}
+    .btn-ghost{padding:8px 16px; font-size:12.5px;}
+    .hero{min-height:230px; padding:26px 20px 32px;}
+    .hero h1{font-size:34px;}
+    .hero-tag{font-size:15px;}
+    .hero-copy{font-size:13.5px;}
+    .quick-icons{grid-template-columns:repeat(3,1fr); gap:10px; margin-top:18px; padding:0 20px 40px;}
+    .qi-card{padding:16px 8px 12px;}
+    .qi-icon{width:36px; height:36px; font-size:16px; margin-bottom:8px;}
+    .qi-card h4{font-size:11.5px;}
+    .qi-card p{display:none;}
+    .section{padding:6px 20px 40px;}
+    .news-grid{grid-template-columns:repeat(2,1fr); gap:12px;}
+    .grid3{grid-template-columns:1fr; gap:16px;}
+    .four-grid{grid-template-columns:1fr;}
+    .newsletter{flex-direction:column; gap:16px; text-align:center; padding:28px 24px; margin:0 16px 20px;}
+    .newsletter-form{width:100%;}
+    .newsletter-form input{flex:1; width:auto;}
+    footer{flex-direction:column; gap:18px; text-align:center; padding:28px 24px;}
+  }
+
+  /* ---------- MODAL / LIGHTBOX ---------- */
+  .event-modal{
+    display:none; position:fixed; inset:0; z-index:1000;
+    background:rgba(8,12,6,.86); backdrop-filter:blur(3px);
+    align-items:center; justify-content:center; padding:30px;
+  }
+  .event-modal.open{display:flex;}
+  .event-modal-inner{
+    position:relative; max-width:min(90vw, 640px); max-height:90vh;
+    animation:modalIn .25s ease;
+  }
+  @keyframes modalIn{ from{opacity:0; transform:scale(.96);} to{opacity:1; transform:scale(1);} }
+  .event-modal-inner img{
+    max-width:100%; max-height:90vh; border-radius:12px; display:block;
+    box-shadow:0 30px 70px rgba(0,0,0,.5);
+  }
+  .event-modal-close{
+    position:absolute; top:-16px; right:-16px; width:38px; height:38px; border-radius:50%;
+    background:#fff; color:#1a1408; border:none; font-size:18px; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(0,0,0,.3);
+  }
+  .event-modal-link{
+    display:block; text-align:center; margin-top:14px; font-size:13px; font-weight:600;
+    color:#E4C87C;
+  }
+  @media (prefers-reduced-motion: reduce){ .event-modal-inner{animation:none;} }
+  @media (max-width:600px){
+    .event-modal-close{top:6px; right:6px;}
+  }
+
+  @media (max-width: 460px){
+    .quick-icons{grid-template-columns:repeat(2,1fr);}
+    .news-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <img class="logo-mark" src="http://datos.gizabariloche.com/wp-content/uploads/2026/07/Professional-Drum-Lessons-Minimalist-Music-Teacher-Logo.png" alt="Melody Music">
+    <div class="logo-text">
+      <div class="name">Melody</div>
+      <div class="sub">MUSIC</div>
+    </div>
+  </div>
+  <nav><ul>
+    <li><a href="#">Inicio</a></li>
+    <li><a href="#">Comunidad Melody</a></li>
+    <li><a href="#">Clases</a></li>
+    <li><a href="#">Conciertos</a></li>
+    <li><a href="#">Instituto</a></li>
+    <li><a href="#">Contacto</a></li>
+  </ul></nav>
+  <div class="nav-right">
+    <a class="btn-ghost" href="#">Ingresar</a>
+    <span class="icon-btn">🔍</span>
+    <button class="hamburger" id="hamburgerBtn" aria-label="Abrir menú" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+<div class="mobile-nav" id="mobileNav">
+  <a href="#">Inicio</a>
+  <a href="#">Comunidad Melody</a>
+  <a href="#">Clases</a>
+  <a href="#">Conciertos</a>
+  <a href="#">Instituto</a>
+  <a href="#">Contacto</a>
+</div>
+
+<section class="hero">
+  <img class="hero-bg" src="https://us.123rf.com/450wm/luckybusiness/luckybusiness1610/luckybusiness161000237/64540878-familia-que-disfruta-de-vacaciones-de-camping-en-el-campo.jpg?ver=6" alt="">
+  <div class="hero-eyebrow script">Bienvenidos a</div>
+  <h1 class="display">Comunidad Melody</h1>
+  <p class="hero-tag">Donde las familias crecen juntas.</p>
+  <div class="hero-divider">♡</div>
+  <p class="hero-copy">La música fue el comienzo. Hoy queremos seguir caminando juntos. Este espacio nació para compartir, aprender, ayudarnos y celebrar cada paso que damos como comunidad.</p>
+  <span class="hero-credit">Foto de muestra (Unsplash) — reemplazar por foto real de la academia cuando esté disponible</span>
+</section>
+
+<div class="featured-event reveal">
+  <div class="fe-card" onclick="openEventModal()" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openEventModal()">
+    <div class="fe-thumb"><img src="http://datos.gizabariloche.com/wp-content/uploads/2026/07/Concierto-Melody.jpeg" alt="Concierto Invernal 2026"></div>
+    <div class="fe-body">
+      <div class="fe-eyebrow">Próximo evento</div>
+      <h3>Concierto Invernal 2026</h3>
+      <p>Viernes 17 de julio · Hotel Inacayal · Junto a Carfi García, Escuela de Arcos</p>
+    </div>
+    <div class="fe-cta">Ver imagen →</div>
+  </div>
+</div>
+
+<div class="youtube-banner reveal">
+  <a href="https://youtube.com" target="_blank" rel="noopener">
+    <img class="yt-icon" src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/YouTube_Logo_2017.svg/1280px-YouTube_Logo_2017.svg.png" alt="YouTube">
+    Mirá nuestro concierto acá
+  </a>
+</div>
+
+<div class="quick-icons reveal">
+  <div class="qi-card"><div class="qi-icon">🌿</div><h4>Noticias</h4><p>Lo último</p></div>
+  <div class="qi-card"><div class="qi-icon">👪</div><h4>Familias</h4><p>Conocemos nuestra comunidad</p></div>
+  <div class="qi-card"><div class="qi-icon">🎻</div><h4>Música</h4><p>Recursos e inspiración</p></div>
+  <div class="qi-card"><div class="qi-icon">📖</div><h4>Aprendizaje</h4><p>Herramientas para crecer</p></div>
+  <div class="qi-card"><div class="qi-icon">💼</div><h4>Profesionales</h4><p>Directorio de familias</p></div>
+  <div class="qi-card"><div class="qi-icon">🤝</div><h4>Ayuda Mutua</h4><p>Nos ayudamos entre todos</p></div>
+  <div class="qi-card"><div class="qi-icon">📅</div><h4>Agenda</h4><p>Próximos eventos</p></div>
+  <div class="qi-card"><div class="qi-icon">🎂</div><h4>Cumpleaños</h4><p>Celebramos juntos</p></div>
+  <div class="qi-card"><div class="qi-icon">📷</div><h4>Galería</h4><p>Momentos que recordamos</p></div>
+</div>
+
+<div class="section reveal">
+  <div class="section-head">
+    <h2><span>🌿</span> Esta semana en Melody</h2>
+    <a href="#">Ver todas las noticias →</a>
+  </div>
+  <div class="news-grid">
+    <div class="news-card">
+      <div class="news-photo"><img src="https://images.unsplash.com/photo-1507838153414-b4b713384a76?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="" loading="lazy"></div>
+      <div class="news-body">
+        <span class="news-tag">Concierto</span>
+        <h4>Concierto de Invierno</h4>
+        <p>Una noche inolvidable llena de música y emoción.</p>
+        <div class="news-meta"><span>💬 3</span><span>♡ 23</span></div>
+      </div>
+    </div>
+    <div class="news-card">
+      <div class="news-photo"><img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="" loading="lazy"></div>
+      <div class="news-body">
+        <span class="news-tag">Nueva alumna</span>
+        <h4>¡Bienvenida, Sofía!</h4>
+        <p>Comenzó sus clases de piano. Nos alegra tenerte en la familia Melody.</p>
+        <div class="news-meta"><span></span><span>♡ 18</span></div>
+      </div>
+    </div>
+    <div class="news-card">
+      <div class="news-photo"><img src="https://plus.unsplash.com/premium_photo-1681335986095-5a9585e77246?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="" loading="lazy"></div>
+      <div class="news-body">
+        <span class="news-tag">Masterclass</span>
+        <h4>Clase abierta de violín</h4>
+        <p>Gracias a todos los que participaron.</p>
+        <div class="news-meta"><span></span><span>♡ 31</span></div>
+      </div>
+    </div>
+    <div class="news-card">
+      <div class="news-photo"><img src="https://media.istockphoto.com/id/2185399793/photo/portrait-of-a-handsome-young-man-singing-a-country-song-and-playing-guitar-at-a-music.webp?s=1024x1024&w=is&k=20&c=ZjnZ6C75FiMYa2_bAdm71nvJRCv26OUaX_OrTQsNG00=" alt="" loading="lazy"></div>
+      <div class="news-body">
+        <span class="news-tag">Historias</span>
+        <h4>Un gran paso, Tomás</h4>
+        <p>Superó sus nervios y tocó su primer solo.</p>
+        <div class="news-meta"><span></span><span>♡ 26</span></div>
+      </div>
+    </div>
+    <div class="news-card">
+      <div class="news-photo"><img src="https://images.unsplash.com/photo-1496293455970-f8581aae0e3b?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDR8fG11c2ljYXxlbnwwfHwwfHx8MA%3D%3D" alt="" loading="lazy"></div>
+      <div class="news-body">
+        <span class="news-tag">Cumpleaños</span>
+        <h4>Cumple de Martina</h4>
+        <p>¡Feliz cumpleaños! Te deseamos lo mejor.</p>
+        <div class="news-meta"><span>💬 2</span><span>♡ 14</span></div>
+      </div>
+    </div>
+    <div class="news-card">
+      <div class="news-photo"><img src="https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="" loading="lazy"></div>
+      <div class="news-body">
+        <span class="news-tag">Orquesta</span>
+        <h4>Ensayo al aire libre</h4>
+        <p>La orquesta disfrutó de una tarde hermosa.</p>
+        <div class="news-meta"><span></span><span>♡ 19</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section reveal">
+  <div class="grid3">
+    <div class="panel">
+      <h3>¿Quiénes forman<br>Comunidad Melody?</h3>
+      <ul class="stat-list">
+        <li><b>160</b> Familias</li>
+        <li><b>380</b> Personas</li>
+        <li><b>42</b> Profesionales</li>
+        <li><b>18</b> Emprendedores</li>
+        <li><b>12</b> Docentes</li>
+        <li><b>9</b> Estudiantes universitarios</li>
+        <li><b>5</b> Médicos</li>
+      </ul>
+      <p style="font-size:12px;color:#9a9686;margin-bottom:16px;">Y muchos más…</p>
+      <button class="btn-solid">Conocé a nuestras familias</button>
+    </div>
+
+    <div class="panel">
+      <h3>Muro de la comunidad</h3>
+      <div class="wall-post">
+        <span class="wall-tag necesito">NECESITO</span>
+        <p>Busco profesor/a de matemática para nivel secundario.</p>
+        <span class="wall-meta">Hace 1 hora · 💬 3</span>
+      </div>
+      <div class="wall-post">
+        <span class="wall-tag ofrezco">OFREZCO</span>
+        <p>Tengo un teclado en excelente estado para vender.</p>
+        <span class="wall-meta">Hace 3 horas · 💬 1</span>
+      </div>
+      <div class="wall-post">
+        <span class="wall-tag agradezco">AGRADEZCO</span>
+        <p>Gracias a la comunidad conseguí trabajo. ¡Qué lindo ser parte!</p>
+        <span class="wall-meta">Hace 5 horas · 💬 6</span>
+      </div>
+      <div style="margin-top:14px;"><button class="btn-solid">Ver más publicaciones</button></div>
+    </div>
+
+    <div class="panel">
+      <div class="section-head" style="margin-bottom:14px;">
+        <h3 style="margin:0;">Agenda</h3>
+        <a href="#" style="font-size:11.5px; color:var(--olive-dark); font-weight:600;">Ver calendario completo →</a>
+      </div>
+      <div id="agendaList">
+        <div class="agenda-row"><div class="agenda-skeleton"></div></div>
+        <div class="agenda-row"><div class="agenda-skeleton"></div></div>
+        <div class="agenda-row"><div class="agenda-skeleton"></div></div>
+      </div>
+      <div style="margin-top:14px;"><button class="btn-solid">Ver toda la agenda</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="section reveal">
+  <div class="four-grid">
+    <div class="promo-card"><div class="bg"><img src="https://plus.unsplash.com/premium_photo-1664194584355-25196f114804?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nzd8fG11c2ljYXxlbnwwfHwwfHx8MA%3D%3D" alt="" loading="lazy"></div><div class="overlay"></div>
+      <div class="promo-content">
+        <h4>Mercado Musical</h4>
+        <p>Compra, vende e intercambia instrumentos y accesorios.</p>
+        <button class="btn-mini">Entrar</button>
+      </div>
+    </div>
+    <div class="promo-card c2"><div class="bg"><img src="https://images.unsplash.com/photo-1525018923-1ebe8261a6a6?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="" loading="lazy"></div><div class="overlay"></div>
+      <div class="promo-content">
+        <h4>Banco de Voluntarios</h4>
+        <p>Sumá tu tiempo, sumá tu talento.</p>
+        <button class="btn-mini">Quiero ayudar</button>
+      </div>
+    </div>
+    <div class="promo-card c3"><div class="bg"><img src="https://images.unsplash.com/photo-1593697972672-b1c1902219e4?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="" loading="lazy"></div><div class="overlay"></div>
+      <div class="promo-content">
+        <h4>Charlas y Talleres</h4>
+        <p>Para padres, madres e hijos.</p>
+        <button class="btn-mini">Ver próximos</button>
+      </div>
+    </div>
+    <div class="promo-card c4"><div class="bg"><img src="https://images.unsplash.com/photo-1507838153414-b4b713384a76?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" alt="" loading="lazy"></div><div class="overlay"></div>
+      <div class="promo-content">
+        <h4>Lecturas Recomendadas</h4>
+        <p>Libros, podcasts y recursos para inspirarte.</p>
+        <button class="btn-mini">Explorar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="newsletter reveal">
+  <div style="display:flex; align-items:center; gap:16px;">
+    <img src="http://datos.gizabariloche.com/wp-content/uploads/2026/07/Professional-Drum-Lessons-Minimalist-Music-Teacher-Logo.png" alt="Melody Music" style="width:52px; height:52px; object-fit:contain;">
+    <div>
+      <p class="script" style="font-size:20px;">La música nos reunió.</p>
+      <p class="script" style="font-size:20px;">La comunidad nos hace permanecer.</p>
+    </div>
+  </div>
+  <div class="newsletter-form">
+    <input type="email" placeholder="Tu correo electrónico">
+    <button class="btn-solid">Suscribirme</button>
+  </div>
+</div>
+
+<footer>
+  <div class="foot-left">
+    <img class="logo-mark-footer" src="http://datos.gizabariloche.com/wp-content/uploads/2026/07/Professional-Drum-Lessons-Minimalist-Music-Teacher-Logo.png" alt="Melody Music">
+    <div>
+      <div style="font-family:'Playfair Display',serif; font-size:15px; font-style:italic;">Instituto Musical Melody Music</div>
+      <div style="font-size:11.5px; opacity:.75;">Formación musical con excelencia y corazón.</div>
+    </div>
+  </div>
+  <div class="socials">
+    <a href="https://instagram.com" target="_blank" rel="noopener"><img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" alt="Instagram"></a>
+    <a href="https://facebook.com" target="_blank" rel="noopener"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/2021_Facebook_icon.svg/250px-2021_Facebook_icon.svg.png" alt="Facebook"></a>
+    <span>▶</span>
+  </div>
+  <div class="foot-links">
+    <a href="#">Comunidad Melody</a>
+    <a href="#">Privacidad</a>
+    <a href="#">Contacto</a>
+  </div>
+</footer>
+
+<div class="event-modal" id="eventModal">
+  <div class="event-modal-inner">
+    <button class="event-modal-close" onclick="closeEventModal()" aria-label="Cerrar">✕</button>
+    <img src="http://datos.gizabariloche.com/wp-content/uploads/2026/07/Concierto-Melody.jpeg" alt="Concierto Invernal 2026 — imagen completa">
+    <a class="event-modal-link" href="concierto-invernal.html">Ver página completa del evento →</a>
+  </div>
+</div>
+
+<script>
+  // Menú mobile
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const mobileNav = document.getElementById('mobileNav');
+  hamburgerBtn.addEventListener('click', () => {
+    const isOpen = mobileNav.classList.toggle('open');
+    hamburgerBtn.setAttribute('aria-expanded', isOpen);
+  });
+  mobileNav.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      mobileNav.classList.remove('open');
+      hamburgerBtn.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // Animación sutil al hacer scroll (una sola vez, sin exagerar)
+  const revealEls = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting){
+        entry.target.classList.add('show');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  revealEls.forEach(el => observer.observe(el));
+
+  // Modal / lightbox del evento destacado
+  const eventModal = document.getElementById('eventModal');
+  window.openEventModal = function(){
+    eventModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  window.closeEventModal = function(){
+    eventModal.classList.remove('open');
+    document.body.style.overflow = '';
+  };
+  eventModal.addEventListener('click', (e) => {
+    if (e.target === eventModal) closeEventModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeEventModal();
+  });
+
+  // Agenda: reemplaza el contenido hardcodeado por los eventos reales de
+  // GET /api/agenda (público, solo activos). Fetch relativo: funciona sin
+  // configuración de CORS porque este HTML se sirve desde el mismo origen
+  // que la API (Express, express.static sobre esta misma carpeta).
+  (function cargarAgenda(){
+    const wrap = document.getElementById('agendaList');
+    if (!wrap) return;
+
+    fetch('/api/agenda')
+      .then((res) => { if (!res.ok) throw new Error('respuesta no OK'); return res.json(); })
+      .then((eventos) => {
+        if (!Array.isArray(eventos) || eventos.length === 0){
+          wrap.innerHTML = '<p class="agenda-empty">Todavía no hay eventos programados. ¡Volvé pronto!</p>';
+          return;
+        }
+        wrap.innerHTML = eventos.map((e) => {
+          const fecha = new Date(`${e.fecha}T00:00:00`);
+          const dia = fecha.getDate();
+          const mes = fecha.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '').toUpperCase();
+          const hora = String(e.hora ?? '').slice(0, 5);
+          return `
+            <div class="agenda-row">
+              <div class="agenda-date"><div class="d">${dia}</div><div class="m">${mes}</div></div>
+              <div class="agenda-info"><h5>${escapeHtmlAgenda(e.titulo)}</h5><span>${escapeHtmlAgenda(e.lugar)}</span></div>
+              <div class="agenda-time">${hora} hs</div>
+            </div>`;
+        }).join('');
+      })
+      .catch(() => {
+        wrap.innerHTML = '<p class="agenda-empty">No pudimos cargar la agenda en este momento.</p>';
+      })
+      .finally(postHeight);
+  })();
+
+  function escapeHtmlAgenda(str){
+    return String(str ?? '').replace(/[&<>"']/g, (c) => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
+    }[c]));
+  }
+
+  // Auto-resize para embeber esta página en un <iframe> (ej. WordPress/
+  // Elementor): postea la altura real del contenido al parent. Se vuelve a
+  // ejecutar en load, cuando cambia el tamaño del body (ResizeObserver cubre
+  // el fetch de la agenda y cualquier módulo futuro sin depender de un
+  // callback puntual por sección) y explícitamente al terminar el fetch de
+  // arriba (por si el ResizeObserver todavía no se disparó).
+  function postHeight(){
+    window.parent.postMessage({ tipo: 'melody-agenda-resize', height: document.body.scrollHeight }, '*');
+  }
+  window.addEventListener('load', postHeight);
+  if (typeof ResizeObserver !== 'undefined'){
+    new ResizeObserver(postHeight).observe(document.body);
+  }
+</script>
+
+</body>
+</html>

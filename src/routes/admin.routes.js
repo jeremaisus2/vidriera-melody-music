@@ -26,6 +26,13 @@ import {
   editarCodigoFamilia,
   cambiarEstadoFamilia,
 } from '../controllers/admin.controller.js';
+import {
+  listarAgendaAdmin,
+  crearEvento as crearEventoAgenda,
+  editarEvento as editarEventoAgenda,
+  eliminarEvento as eliminarEventoAgenda,
+  reordenarAgenda,
+} from '../controllers/agenda.controller.js';
 
 export const adminRouter = Router();
 
@@ -69,3 +76,11 @@ adminRouter.get('/familias',            listarFamilias);
 adminRouter.post('/familias',           crearFamilia);
 adminRouter.put('/familias/:id',        editarCodigoFamilia);
 adminRouter.post('/familias/:id/estado', cambiarEstadoFamilia);
+
+// --- Agenda de la comunidad ---
+// Ruta estática /reorder ANTES de /:id, mismo criterio que /publicaciones/orden.
+adminRouter.get('/agenda',            listarAgendaAdmin);
+adminRouter.post('/agenda',           crearEventoAgenda);
+adminRouter.put('/agenda/reorder',    reordenarAgenda);
+adminRouter.put('/agenda/:id',        editarEventoAgenda);
+adminRouter.delete('/agenda/:id',     eliminarEventoAgenda);
