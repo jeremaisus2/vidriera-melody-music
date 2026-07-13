@@ -2,6 +2,7 @@ import * as publicacionesRepo from '../repos/publicaciones.repo.js';
 import * as eventosRepo from '../repos/eventos.repo.js';
 import * as textosRepo from '../repos/textos.repo.js';
 import * as familiasRepo from '../repos/familias.repo.js';
+import * as superadminRepo from '../repos/superadmin.repo.js';
 import { CATEGORIAS_VALIDAS } from './publicaciones.controller.js';
 
 const TIPOS_VALIDOS = ['concierto', 'muestra', 'examen'];
@@ -402,6 +403,22 @@ export async function cambiarEstadoFamilia(req, res, next) {
     const resultado = await familiasRepo.setEstadoFamilia(req.perfil.academia_id, req.params.id, activo);
     if (!resultado) return res.status(404).json({ error: 'Familia no encontrada' });
     return res.json({ mensaje: activo ? 'Acceso reactivado.' : 'Acceso dado de baja.', familia: resultado });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Módulos activos de la propia academia (solo lectura) — le permite al
+// admin (no solo a super_admin) saber qué módulos tiene activos, para que
+// el frontend pueda mostrar/ocultar accesos (Agenda, Eventos, Sponsors,
+// etc.) según el catálogo real en vez de links fijos hardcodeados. Reusa
+// tal cual superadminRepo.getModulosAcademia(), que ya existía para la
+// pantalla de super-admin — no se agregó ninguna lógica de negocio nueva.
+// ---------------------------------------------------------------------------
+export async function listarModulosPropios(req, res, next) {
+  try {
+    return res.json(await superadminRepo.getModulosAcademia(req.perfil.academia_id));
   } catch (err) {
     return next(err);
   }

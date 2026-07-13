@@ -25,6 +25,7 @@ import {
   crearFamilia,
   editarCodigoFamilia,
   cambiarEstadoFamilia,
+  listarModulosPropios,
 } from '../controllers/admin.controller.js';
 import {
   listarAgendaAdmin,
@@ -84,3 +85,6 @@ adminRouter.post('/agenda',           crearEventoAgenda);
 adminRouter.put('/agenda/reorder',    reordenarAgenda);
 adminRouter.put('/agenda/:id',        editarEventoAgenda);
 adminRouter.delete('/agenda/:id',     eliminarEventoAgenda);
+
+// --- Módulos activos de la propia academia (solo lectura) ---
+adminRouter.get('/modulos', listarModulosPropios);

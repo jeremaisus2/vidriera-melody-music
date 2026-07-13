@@ -208,6 +208,37 @@ async function verifyAdminAndEnter() {
   loadOrden();
   loadTextos();
   loadFamilias();
+  loadModulosNav();
+}
+
+// ---------------------------------------------------------------------------
+// Links del sidebar a pantallas standalone (Agenda, Eventos, Sponsors) —
+// mostrados SOLO si el módulo está activo para esta academia según el
+// catálogo real (GET /api/admin/modulos, ver superadminRepo.getModulosAcademia).
+// Antes de esto, el link de Agenda estaba fijo en el HTML sin pasar por
+// ningún chequeo — ahora los 3 se renderizan acá según corresponda.
+// ---------------------------------------------------------------------------
+const MODULOS_PANTALLA = [
+  { clave: 'agenda',   href: '/agenda-admin.html',   label: 'Agenda' },
+  { clave: 'eventos',  href: '/eventos-admin.html',  label: 'Eventos' },
+  { clave: 'sponsors', href: '/sponsors-admin.html', label: 'Sponsors' },
+];
+
+async function loadModulosNav() {
+  const { ok, data } = await apiGet('/api/admin/modulos');
+  const wrap = document.getElementById('modulosNav');
+  const divider = document.getElementById('modulosDivider');
+  if (!ok) {
+    wrap.innerHTML = '';
+    divider.hidden = true;
+    return;
+  }
+
+  const activos = new Set(data.filter((m) => m.activo).map((m) => m.clave));
+  const visibles = MODULOS_PANTALLA.filter((m) => activos.has(m.clave));
+
+  divider.hidden = visibles.length === 0;
+  wrap.innerHTML = visibles.map((m) => `<a href="${m.href}" class="mm-sidebar-item">${m.label} ↗</a>`).join('');
 }
 
 // ---------------------------------------------------------------------------

@@ -112,11 +112,19 @@ function showToast(msg) {
 // ---------------------------------------------------------------------------
 function showLoginGate() {
   document.getElementById('loginGate').hidden = false;
+  document.getElementById('moduloInactivoGate').hidden = true;
+  document.getElementById('spShell').hidden = true;
+}
+
+function showModuloInactivo() {
+  document.getElementById('loginGate').hidden = true;
+  document.getElementById('moduloInactivoGate').hidden = false;
   document.getElementById('spShell').hidden = true;
 }
 
 function showShell() {
   document.getElementById('loginGate').hidden = true;
+  document.getElementById('moduloInactivoGate').hidden = true;
   document.getElementById('spShell').hidden = false;
 }
 
@@ -157,6 +165,17 @@ async function verifyAdminAndEnter() {
     loginError.hidden = false;
     return;
   }
+
+  // Gate de página: si el módulo "sponsors" no está activo para esta
+  // academia en el catálogo real, no se muestra el panel aunque el
+  // login/rol sean válidos. No reemplaza el control por rol de arriba.
+  const modulos = await apiGet('/api/admin/modulos');
+  const activo = modulos.ok && modulos.data.some((m) => m.clave === 'sponsors' && m.activo);
+  if (!activo) {
+    showModuloInactivo();
+    return;
+  }
+
   showShell();
   const avatarBtn = document.getElementById('avatarBtn');
   const email = session?.user?.email ?? '';

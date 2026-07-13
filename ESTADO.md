@@ -208,6 +208,87 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-12 #23 — Agenda/Eventos/Sponsors conectados al catálogo real de módulos
+
+Pedido explícito: que las tres pantallas de las sesiones #21/#22 dejen de
+depender de un link fijo en el sidebar y pasen a regirse por el catálogo real
+de módulos de super-admin (Etapa E) — poder activar Agenda y dejar Eventos/
+Sponsors apagados desde ese panel, sin tocar código.
+
+**Investigación previa, pedida explícitamente antes de tocar nada**: se
+confirmó por lectura de código (`grep` en `src/controllers`/`middleware`/
+`routes`) y consulta real (read-only) a Supabase que **no existía ningún
+mecanismo previo** de consumo de `vidriera_academia_modulos` fuera de la
+pantalla de super-admin — el catálogo era pura bookkeeping, sin ningún efecto
+sobre qué ve el admin de la academia. Confirmado también que el catálogo
+todavía tenía solo los 4 módulos originales (`vidriera`/`galeria`/
+`estadisticas`/`qr`): las migraciones 010 y 011 (ver abajo) siguen sin
+correr. Se presentó el diseño propuesto al usuario antes de programar, que
+lo confirmó con la opción de gating solo de página (sin tocar los
+controllers de agenda/eventos/sponsors).
+
+**Migración nueva** (`db/migrations/011_catalogo_eventos_sponsors.sql`, para
+correr manualmente **después** de `010_agenda.sql` — depende de que la clave
+`'agenda'` ya exista en `vidriera_modulos`, FK de
+`vidriera_academia_modulos.modulo_clave`): alta de `'eventos'` y `'sponsors'`
+en el catálogo (`incluido: false`, mismo criterio que galería/estadísticas/
+QR) + activación inicial para Melody Music (`agenda: true`, `eventos: false`,
+`sponsors: false`) vía `on conflict do nothing` (no `do update`) para no
+pisar un cambio manual posterior del super-admin si la migración se
+reejecutara por error.
+
+**Backend — un solo endpoint nuevo, cero lógica nueva**:
+`GET /api/admin/modulos` (`admin.controller.js`/`admin.routes.js`, ya pasa
+por `requireAuth + requireRole('admin')` del router): expone
+`superadminRepo.getModulosAcademia(req.perfil.academia_id)` —la misma
+función que ya usaba la pantalla de super-admin— a la propia academia, algo
+que no existía. Sin cambios en `superadmin.repo.js` ni en ninguna tabla.
+
+**Frontend — sidebar de `admin.html` ahora es data-driven**: se sacó el
+`<a href="/agenda-admin.html">Agenda ↗</a>` fijo y se reemplazó por un
+contenedor (`#modulosNav`) que `admin.js` llena tras `GET /api/admin/modulos`
+(`loadModulosNav()`, llamada en `verifyAdminAndEnter()` junto al resto de
+las cargas iniciales) — solo aparecen los links de Agenda/Eventos/Sponsors
+cuya clave está `activo` para la academia logueada.
+
+**Gate de página en las 3 pantallas** (`agenda-admin.js`/`eventos-admin.js`/
+`sponsors-admin.js`): cada una, después de verificar rol admin (como ya
+hacía), llama a `GET /api/admin/modulos` y si su propia clave no está activa
+muestra un bloque nuevo ("Este módulo no está activo", mismo estilo que el
+login gate de cada pantalla, con link de vuelta a `admin.html`) en vez del
+panel — sin tocar ninguna función de CRUD existente de esas 3 pantallas.
+**Limitación conocida y aceptada explícitamente por el usuario**: esto
+bloquea la *página*, no la API cruda — un admin de la propia academia que
+llame directo a `/api/admin/eventos` con su JWT real seguiría teniendo
+acceso aunque el módulo esté "inactivo" en el catálogo. Server-side
+enforcement hubiera requerido tocar los controllers de agenda/eventos/
+sponsors, fuera del alcance pedido para esta etapa.
+
+**Verificado con un admin de prueba descartable** (creado y borrado en la
+misma corrida, `scripts/crear-usuario.mjs`, mismo criterio que sesiones
+anteriores): login real, `GET /api/admin/modulos` con su JWT devuelve
+exactamente los 4 módulos existentes (sin `agenda`/`eventos`/`sponsors`,
+confirmando que las migraciones 010/011 siguen pendientes) — y se confirmó
+programáticamente que, con ese dato, el sidebar de `admin.html` no
+renderizaría NINGÚN link hoy (ni Agenda) y las 3 pantallas mostrarían el
+bloqueo "módulo no activo" si se accediera por URL directa. Usuario y perfil
+de prueba borrados al final, confirmado sin residuo.
+
+**Consecuencia importante para el usuario, remarcada en el resumen de esta
+sesión**: antes de este cambio, Agenda era accesible vía el link fijo del
+sidebar aunque el catálogo no supiera nada de ella. Después de este cambio
+(ya en el commit, a la espera de push), **Agenda desaparece del sidebar y
+queda bloqueada por URL directa hasta que se corran las migraciones 010 Y
+011** — es el comportamiento correcto que se pidió (todo pasa por el
+catálogo real), pero implica que el módulo queda temporalmente inaccesible
+en producción hasta correr ambas migraciones, no sigue "siempre activo"
+como estaba hasta ahora.
+
+**Sin commit/push en esta sesión** — pendiente de confirmación del usuario
+antes de subir, mismo criterio que sesiones anteriores.
+
+---
+
 ### Sesión 2026-07-12 #22 — Lavado de cara visual: vidriera, eventos y sponsors
 
 Pedido explícito: extender la dirección visual estrenada en Agenda (sesión
