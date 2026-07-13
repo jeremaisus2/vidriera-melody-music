@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muro · Melody Music</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Petit+Formal+Script&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/muro-admin.css">
+</head>
+<body>
+
+<div class="mu-gate" id="loginGate">
+  <div class="mu-login-card">
+    <div class="mu-login-eyebrow script">Panel de gestión</div>
+    <h1 class="mu-login-title display">Muro</h1>
+    <p class="mu-login-sub">Iniciá sesión con tu cuenta de administrador de Melody Music.</p>
+    <form id="loginForm">
+      <label class="mu-field">
+        <span>Email</span>
+        <input type="email" name="email" required autocomplete="username">
+      </label>
+      <label class="mu-field">
+        <span>Contraseña</span>
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <p class="mu-form-error" id="loginError" hidden></p>
+      <button type="submit" class="mu-btn-solid" style="width:100%;">Ingresar</button>
+    </form>
+    <a class="mu-login-back" href="/admin.html">← Volver al panel de administración</a>
+  </div>
+</div>
+
+<div class="mu-gate" id="moduloInactivoGate" hidden>
+  <div class="mu-login-card">
+    <div class="mu-login-eyebrow script">Módulo no disponible</div>
+    <h1 class="mu-login-title display" style="font-size:26px;">Este módulo no está activo</h1>
+    <p class="mu-login-sub">Muro de la comunidad no está habilitado para Melody Music en este momento. Si creés que debería estarlo, pedile a GIZA que lo active desde el panel de super-admin.</p>
+    <a class="mu-login-back" href="/admin.html">← Volver al panel de administración</a>
+  </div>
+</div>
+
+<div id="muShell" class="mu-shell" hidden>
+
+  <header class="mu-topbar">
+    <div class="mu-brand">
+      <span class="mu-eyebrow script">Panel de gestión</span>
+      <h1 class="display">Muro</h1>
+    </div>
+    <div class="mu-topbar-right">
+      <a class="mu-link-ghost" href="/admin.html">Panel de administración</a>
+      <button type="button" class="mu-avatar" id="avatarBtn" title="Cerrar sesión">A</button>
+    </div>
+  </header>
+
+  <main class="mu-main">
+    <nav class="mu-tabs">
+      <button type="button" class="mu-tab active" id="tabModeracionBtn">Moderación</button>
+      <button type="button" class="mu-tab" id="tabCategoriasBtn">Categorías</button>
+    </nav>
+
+    <section id="viewModeracion" class="mu-view">
+      <div class="mu-view-header">
+        <div>
+          <h2 class="display">Mensajes de la comunidad</h2>
+          <p class="mu-sub">Necesito / ofrezco / agradezco, enviados por las familias. Aprobalos para que se vean en la landing pública.</p>
+        </div>
+        <div class="mu-filtro">
+          <button type="button" class="mu-filtro-btn active" data-filtro="pendiente">Pendientes</button>
+          <button type="button" class="mu-filtro-btn" data-filtro="aprobado">Aprobados</button>
+          <button type="button" class="mu-filtro-btn" data-filtro="rechazado">Rechazados</button>
+          <button type="button" class="mu-filtro-btn" data-filtro="todos">Todos</button>
+        </div>
+      </div>
+      <div id="muroList" class="mu-list"></div>
+    </section>
+
+    <section id="viewCategorias" class="mu-view" hidden>
+      <div class="mu-view-header">
+        <div>
+          <h2 class="display">Categorías del muro</h2>
+          <p class="mu-sub">Arrastrá para reordenar. Una categoría desactivada no se puede elegir al publicar un mensaje nuevo, pero los mensajes ya cargados con ella no se ven afectados.</p>
+        </div>
+        <button type="button" class="mu-btn-solid" id="newCategoriaBtn">+ Nueva categoría</button>
+      </div>
+      <div id="categoriasList" class="mu-cat-list"></div>
+    </section>
+  </main>
+</div>
+
+<div class="mu-overlay" id="formOverlay" hidden></div>
+<aside class="mu-panel" id="formPanel" hidden>
+  <div class="mu-panel-head">
+    <h3 class="display" id="formTitle">Nueva categoría</h3>
+    <button type="button" class="mu-panel-close" id="formCloseBtn" aria-label="Cerrar">✕</button>
+  </div>
+  <form id="categoriaForm" class="mu-panel-body">
+    <label class="mu-field">
+      <span>Nombre</span>
+      <input type="text" id="formNombre" required placeholder="ej: Regalo">
+    </label>
+    <label class="mu-field" id="formClaveField">
+      <span>Clave (identificador interno, no se puede cambiar después)</span>
+      <input type="text" id="formClave" required placeholder="ej: regalo" pattern="[a-z0-9-]+">
+    </label>
+    <label class="mu-field">
+      <span>Color del tag</span>
+      <input type="color" id="formColor" value="#E9D9CB">
+    </label>
+    <p class="mu-form-error" id="formError" hidden></p>
+    <div class="mu-panel-actions">
+      <button type="button" class="mu-btn-outline" id="formCancelBtn">Cancelar</button>
+      <button type="submit" class="mu-btn-solid" id="formSaveBtn">Guardar</button>
+    </div>
+  </form>
+</aside>
+
+<div class="mu-toast" id="toast" hidden></div>
+
+<script src="/config.js"></script>
+<script type="module" src="/js/muro-admin.js"></script>
+</body>
+</html>

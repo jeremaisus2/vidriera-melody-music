@@ -1,0 +1,213 @@
+/* =====================================================================
+   Muro · Melody Music — panel de gestión
+   Misma dirección visual que agenda-admin/eventos-admin/sponsors-admin
+   (paleta cream/olive/clay + Playfair Display/Petit Formal Script/Inter),
+   con su propia hoja e ids .mu-* — ver ARQUITECTURA.md §6.3.
+   ===================================================================== */
+
+:root {
+  --cream: #F7F3EA;
+  --cream-2: #FBF9F3;
+  --ink: #2B2B24;
+  --olive: #4A5A3A;
+  --olive-dark: #38452B;
+  --olive-soft: #7C8A66;
+  --olive-tint: #EAEEE3;
+  --clay: #C97A55;
+  --clay-tint: #F3E1D5;
+  --line: #E4DDCB;
+  --muted: #928d7e;
+  --danger: #B0503A;
+  --shadow-soft: 0 10px 24px rgba(60, 50, 20, .08);
+  --shadow-lift: 0 18px 40px rgba(40, 34, 14, .14);
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+.display { font-family: 'Playfair Display', serif; }
+.script { font-family: 'Petit Formal Script', cursive; }
+button { font-family: inherit; }
+
+/* ---------- Login / módulo inactivo gate ---------- */
+.mu-gate[hidden] { display: none; }
+.mu-gate {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--cream); padding: 24px;
+}
+.mu-login-card {
+  width: 100%; max-width: 380px; background: var(--cream-2);
+  border: 1px solid var(--line); border-radius: 20px;
+  padding: 40px 36px; box-shadow: var(--shadow-lift);
+}
+.mu-login-eyebrow { font-size: 16px; color: var(--clay); margin-bottom: 2px; }
+.mu-login-title { font-size: 34px; font-weight: 600; margin: 0 0 6px; color: var(--olive-dark); }
+.mu-login-sub { font-size: 13px; color: var(--muted); margin: 0 0 24px; line-height: 1.5; }
+.mu-login-back { display: block; margin-top: 18px; font-size: 12.5px; color: var(--muted); text-align: center; text-decoration: none; }
+.mu-login-back:hover { color: var(--olive-dark); }
+
+.mu-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.mu-field span { font-size: 12px; font-weight: 600; color: var(--olive-dark); }
+.mu-field input {
+  font-family: inherit; font-size: 14px; padding: 10px 13px;
+  border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+  outline: none; transition: border-color .15s ease;
+}
+.mu-field input[type="color"] { padding: 4px; height: 40px; cursor: pointer; }
+.mu-field input:focus { border-color: var(--clay); }
+
+.mu-form-error {
+  font-size: 12.5px; color: var(--danger); background: #F7E7E0;
+  border-radius: 8px; padding: 8px 12px; margin: 0 0 14px;
+}
+
+/* ---------- Buttons ---------- */
+.mu-btn-solid, .mu-btn-outline {
+  font-size: 13px; font-weight: 700; border-radius: 100px; cursor: pointer;
+  padding: 10px 20px; border: none; transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.mu-btn-solid { background: var(--olive-dark); color: #fff; }
+.mu-btn-solid:hover { transform: translateY(-1px); box-shadow: var(--shadow-soft); }
+.mu-btn-outline { background: transparent; color: var(--olive-dark); border: 1px solid var(--line); }
+.mu-btn-outline:hover:not(:disabled) { border-color: var(--olive-soft); background: var(--olive-tint); }
+.mu-btn-outline:disabled { color: var(--line); cursor: default; }
+
+/* ---------- Shell ---------- */
+.mu-shell[hidden] { display: none; }
+
+.mu-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 40px; background: var(--cream-2); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 20;
+}
+.mu-brand { display: flex; align-items: baseline; gap: 10px; }
+.mu-brand .mu-eyebrow { font-size: 14px; color: var(--clay); }
+.mu-brand h1 { font-size: 22px; font-weight: 600; margin: 0; color: var(--olive-dark); }
+.mu-topbar-right { display: flex; align-items: center; gap: 18px; }
+.mu-link-ghost { font-size: 13px; font-weight: 600; color: var(--ink); opacity: .8; text-decoration: none; }
+.mu-link-ghost:hover { opacity: 1; color: var(--olive-dark); }
+.mu-avatar {
+  width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+  background: var(--olive-dark); color: #fff; font-weight: 700; font-size: 13px;
+}
+
+.mu-main { max-width: 920px; margin: 0 auto; padding: 30px 24px 100px; }
+
+/* ---------- Tabs ---------- */
+.mu-tabs { display: flex; gap: 4px; margin-bottom: 28px; border-bottom: 1px solid var(--line); }
+.mu-tab {
+  background: none; border: none; padding: 10px 18px; font-size: 13.5px; font-weight: 700;
+  color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.mu-tab:hover { color: var(--olive-dark); }
+.mu-tab.active { color: var(--olive-dark); border-bottom-color: var(--clay); }
+
+.mu-view[hidden] { display: none; }
+.mu-view-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; flex-wrap: wrap; }
+.mu-view-header h2 { font-size: 24px; font-weight: 600; margin: 0 0 6px; color: var(--ink); }
+.mu-sub { font-size: 13.5px; color: var(--muted); margin: 0; max-width: 560px; line-height: 1.5; }
+
+.mu-filtro { display: flex; gap: 6px; flex-wrap: wrap; }
+.mu-filtro-btn {
+  font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 100px; cursor: pointer;
+  background: transparent; border: 1px solid var(--line); color: var(--muted);
+}
+.mu-filtro-btn:hover { border-color: var(--olive-soft); }
+.mu-filtro-btn.active { background: var(--olive-dark); border-color: var(--olive-dark); color: #fff; }
+
+/* ---------- Lista de moderación ---------- */
+.mu-list { display: flex; flex-direction: column; gap: 12px; }
+
+.mu-post-card {
+  background: var(--cream-2); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 20px; box-shadow: var(--shadow-soft);
+}
+.mu-post-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.mu-post-tag { font-size: 10.5px; font-weight: 700; padding: 4px 11px; border-radius: 100px; color: var(--ink); text-transform: uppercase; letter-spacing: .03em; }
+.mu-post-meta { font-size: 11.5px; color: var(--muted); margin-left: auto; }
+.mu-post-estado { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 100px; text-transform: uppercase; }
+.mu-post-estado.pendiente { background: var(--clay-tint); color: var(--clay); }
+.mu-post-estado.aprobado { background: var(--olive-tint); color: var(--olive-dark); }
+.mu-post-estado.rechazado { background: var(--line); color: var(--muted); }
+.mu-post-contenido { font-size: 14px; color: var(--ink); line-height: 1.5; margin-bottom: 12px; }
+.mu-post-actions { display: flex; gap: 8px; }
+
+/* ---------- Estado vacío ---------- */
+.mu-empty {
+  text-align: center; padding: 60px 24px; background: var(--cream-2);
+  border: 1px dashed var(--line); border-radius: 20px;
+}
+.mu-empty .mu-empty-icon {
+  width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 50%;
+  background: var(--clay-tint); display: flex; align-items: center; justify-content: center; font-size: 24px;
+}
+.mu-empty h3 { font-size: 18px; font-weight: 600; margin: 0 0 8px; color: var(--olive-dark); }
+.mu-empty p { font-size: 13px; color: var(--muted); margin: 0; max-width: 340px; margin-left: auto; margin-right: auto; line-height: 1.5; }
+
+/* ---------- Categorías ---------- */
+.mu-cat-list { display: flex; flex-direction: column; gap: 10px; }
+.mu-cat-row {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--cream-2); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px 16px; box-shadow: var(--shadow-soft); cursor: grab;
+}
+.mu-cat-row.dragging { opacity: .4; }
+.mu-cat-row.mu-cat-inactiva { opacity: .55; }
+.mu-cat-handle { color: var(--muted); font-size: 14px; user-select: none; flex: none; }
+.mu-cat-swatch { width: 28px; height: 28px; border-radius: 8px; flex: none; border: 1px solid rgba(0,0,0,.08); }
+.mu-cat-body { flex: 1; min-width: 0; }
+.mu-cat-nombre { font-size: 14px; font-weight: 700; color: var(--ink); }
+.mu-cat-clave { font-size: 11.5px; color: var(--muted); font-family: monospace; }
+.mu-cat-actions { display: flex; gap: 6px; flex: none; }
+.mu-icon-btn {
+  width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line);
+  background: #fff; cursor: pointer; font-size: 13px; color: var(--muted);
+  display: flex; align-items: center; justify-content: center; transition: all .15s ease;
+}
+.mu-icon-btn:hover { border-color: var(--clay); color: var(--clay); }
+
+/* ---------- Panel lateral ---------- */
+.mu-overlay {
+  position: fixed; inset: 0; background: rgba(30, 26, 16, .35); backdrop-filter: blur(1px);
+  z-index: 40; opacity: 0; transition: opacity .25s ease;
+}
+.mu-overlay[hidden] { display: none; }
+.mu-overlay.mu-show { opacity: 1; }
+
+.mu-panel {
+  position: fixed; top: 0; right: 0; height: 100vh; width: min(420px, 92vw);
+  background: var(--cream-2); border-left: 1px solid var(--line);
+  box-shadow: -20px 0 50px rgba(30, 26, 16, .18);
+  z-index: 41; display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .3s cubic-bezier(.22,.9,.32,1);
+}
+.mu-panel[hidden] { display: none; }
+.mu-panel.mu-show { transform: translateX(0); }
+
+.mu-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 24px 28px 0; }
+.mu-panel-head h3 { font-size: 21px; font-weight: 600; margin: 0; color: var(--olive-dark); }
+.mu-panel-close { width: 30px; height: 30px; border-radius: 50%; border: none; background: transparent; cursor: pointer; font-size: 15px; color: var(--muted); }
+.mu-panel-close:hover { background: var(--olive-tint); color: var(--olive-dark); }
+
+.mu-panel-body { padding: 20px 28px 28px; overflow-y: auto; }
+.mu-panel-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+
+/* ---------- Toast ---------- */
+.mu-toast[hidden] { display: none; }
+.mu-toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  background: var(--olive-dark); color: #fff; font-size: 13px; font-weight: 600;
+  padding: 12px 22px; border-radius: 100px; box-shadow: var(--shadow-lift); z-index: 60;
+  animation: muToastIn .2s ease;
+}
+@keyframes muToastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mu-overlay, .mu-panel, .mu-toast, .mu-btn-solid { transition: none; animation: none; }
+}

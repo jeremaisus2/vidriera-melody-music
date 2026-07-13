@@ -8,6 +8,7 @@ import { uploadsRouter } from './uploads.routes.js';
 import { textosRouter } from './textos.routes.js';
 import { authRouter } from './auth.routes.js';
 import { agendaRouter } from './agenda.routes.js';
+import { muroRouter } from './muro.routes.js';
 
 export const apiRouter = Router();
 
@@ -34,3 +35,6 @@ apiRouter.use('/uploads', uploadsRouter);
 
 // Módulo: Agenda de la comunidad (landing pública "Comunidad Melody")
 apiRouter.use('/agenda', agendaRouter);
+
+// Módulo: Muro de la comunidad (mensajes de familias con moderación)
+apiRouter.use('/muro', muroRouter);

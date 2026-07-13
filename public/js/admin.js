@@ -236,6 +236,7 @@ const MODULOS_PANTALLA = [
   { clave: 'agenda',   href: '/agenda-admin.html',   label: 'Agenda' },
   { clave: 'eventos',  href: '/eventos-admin.html',  label: 'Eventos' },
   { clave: 'sponsors', href: '/sponsors-admin.html', label: 'Sponsors' },
+  { clave: 'muro',     href: '/muro-admin.html',     label: 'Muro' },
 ];
 
 const SECCIONES_CORE = [

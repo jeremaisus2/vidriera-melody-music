@@ -34,6 +34,15 @@ import {
   eliminarEvento as eliminarEventoAgenda,
   reordenarAgenda,
 } from '../controllers/agenda.controller.js';
+import {
+  listarMuroAdmin,
+  actualizarEstadoPost,
+  listarCategoriasAdmin,
+  crearCategoria as crearCategoriaMuro,
+  editarCategoria as editarCategoriaMuro,
+  cambiarEstadoCategoria as cambiarEstadoCategoriaMuro,
+  reordenarCategorias as reordenarCategoriasMuro,
+} from '../controllers/muro.controller.js';
 
 export const adminRouter = Router();
 
@@ -88,3 +97,15 @@ adminRouter.delete('/agenda/:id',     eliminarEventoAgenda);
 
 // --- Módulos activos de la propia academia (solo lectura) ---
 adminRouter.get('/modulos', listarModulosPropios);
+
+// --- Muro de la comunidad ---
+// Rutas estáticas de categorías ANTES de /muro/:id/estado, mismo criterio
+// que el resto del proyecto. /muro/categorias/reorder ANTES de
+// /muro/categorias/:clave por la misma razón.
+adminRouter.get('/muro',                          listarMuroAdmin);
+adminRouter.put('/muro/:id/estado',               actualizarEstadoPost);
+adminRouter.get('/muro/categorias',               listarCategoriasAdmin);
+adminRouter.post('/muro/categorias',              crearCategoriaMuro);
+adminRouter.put('/muro/categorias/reorder',       reordenarCategoriasMuro);
+adminRouter.put('/muro/categorias/:clave',        editarCategoriaMuro);
+adminRouter.post('/muro/categorias/:clave/estado', cambiarEstadoCategoriaMuro);

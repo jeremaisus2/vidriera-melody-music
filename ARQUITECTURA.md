@@ -74,6 +74,13 @@ el panel sin re-emitir JWTs. `super_admin` no está atado a una academia.
    galería/testimonios ni relación con `vidriera_eventos` — es contenido simple para
    una landing distinta (pensada para embeberse vía iframe en WordPress/Elementor),
    no el calendario con participación de familias del portal principal.
+9. **Muro de la comunidad** — mensajes cortos de familias (necesito/ofrezco/agradezco +
+   categorías adicionales configurables), moderados por el admin (`pendiente →
+   aprobado/rechazado`, mismo flujo que la vidriera de emprendimientos) antes de
+   quedar visibles públicamente. Construido en la sesión #28 — **solo backend + panel
+   de admin** (`muro-admin.html`); la conexión con `comunidad-melody-landing.html` (el
+   panel "Muro" visible + su modal de ver todo) queda para una sesión posterior a
+   propósito, por eso el módulo arranca **inactivo** en el catálogo (ver §5).
 
 ## 5. Modelo de datos (`db/schema.sql`)
 
@@ -120,6 +127,25 @@ Todas con prefijo `vidriera_`:
   manual entre eventos del mismo día, `fecha` manda en el orden público), `activo`
   (boolean default true, soft hide). Tabla independiente de `vidriera_eventos` — no
   comparte fila ni FK con el calendario del portal principal.
+- `vidriera_muro_categorias` (Muro, `db/migrations/012_muro_comunidad.sql`) — catálogo
+  de categorías del muro (necesito/ofrezco/agradezco + las que agregue el admin desde
+  `muro-admin.html`). **Global, no por academia** (mismo criterio que
+  `vidriera_categorias`) — a diferencia de esa tabla, sí es editable desde el panel
+  (crear/editar/activar-desactivar/reordenar), mismo patrón soft-delete que
+  `vidriera_modulos`. `id` (uuid) y `clave` (text, unique) son campos separados —a
+  diferencia de `vidriera_categorias`/`vidriera_modulos`, donde `clave` es la propia
+  PK— porque así se pidió explícitamente. `color`: un solo hex de fondo del tag: el
+  texto usa un tono de tinta fijo, no se calculó/guardó un segundo color de texto.
+- `vidriera_muro` (Muro) — mensajes: `contenido`, `categoria` (FK a
+  `vidriera_muro_categorias.clave`), `familia_id` (FK a `auth.users(id)` directo,
+  mismo criterio que `owner_user_id`/`user_id` en publicaciones/testimonios/RSVP — no
+  a `vidriera_codigos_familia`, aunque esa tabla es 1:1 con la cuenta), `estado`
+  (`pendiente`/`aprobado`/`rechazado`, mismo flujo que publicaciones). **Sin
+  `motivo_rechazo`** (a diferencia de `vidriera_publicaciones`) — el pedido original
+  listó los campos de esta tabla explícitamente y no lo incluía; se respetó tal cual
+  en vez de asumir que hacía falta. `academia_id` sí se agregó aunque no estaba en esa
+  lista — sin él ni el admin puede filtrar "los posts de mi academia" ni la RLS puede
+  scopear moderación por academia, el patrón que se pidió seguir explícitamente.
 
 > **`familia` como columna, no join a `vidriera_perfiles`**: aunque `vidriera_perfiles.nombre`
 > ya existe, esa tabla no es de lectura pública (RLS solo permite ver el propio perfil o
@@ -145,18 +171,21 @@ src/
     requireRole.js       requireRole(...roles): autorización por rol
     errorHandler.js      notFound + errorHandler centralizado
   routes/
-    index.js             monta /api/{publicaciones,eventos,admin,super-admin,agenda}
+    index.js             monta /api/{publicaciones,eventos,admin,super-admin,agenda,muro}
     publicaciones.routes.js
     eventos.routes.js
     admin.routes.js      protegido con requireRole('admin')
     superadmin.routes.js protegido con requireRole('super_admin')
     agenda.routes.js     público (GET /api/agenda); rutas admin viven en admin.routes.js
+    muro.routes.js       público (GET /api/muro, /api/muro/categorias) + POST autenticado
+                         (familia); rutas admin (moderación + categorías) en admin.routes.js
   repos/
     publicaciones.repo.js  vidriera_publicaciones + vidriera_publicaciones_ediciones
     eventos.repo.js         vidriera_eventos, sponsors, rsvp, reacciones, galería, testimonios
     superadmin.repo.js      vidriera_academias, vidriera_academia_modulos, vidriera_modulos
     uploads.repo.js         compresión (sharp) + subida a Supabase Storage
     agenda.repo.js          vidriera_agenda (Agenda de la landing "Comunidad Melody")
+    muro.repo.js            vidriera_muro + vidriera_muro_categorias
 scripts/
   crear-usuario.mjs      alta manual de un usuario real (cliente o admin; Auth + vidriera_perfiles)
   setup-storage.mjs      alta idempotente del bucket vidriera-imagenes
@@ -187,6 +216,10 @@ public/
   sponsors-admin.html, css/sponsors-admin.css, js/sponsors-admin.js
                          panel de Sponsors por evento — misma dirección visual,
                          primera pantalla que consume /api/admin/eventos/:id/sponsors
+  muro-admin.html, css/muro-admin.css, js/muro-admin.js
+                         panel del Muro (moderación de posts + CRUD de categorías) —
+                         misma dirección visual, sesión #28. Módulo 'muro' arranca
+                         inactivo en el catálogo (ver §5) hasta conectar la landing.
   comunidad-melody-landing.html
                          landing pública "Comunidad Melody" (embebida vía iframe en
                          WordPress/Elementor del cliente), servida como estático

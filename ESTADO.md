@@ -208,6 +208,151 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-13 #28 — Backend completo del módulo "Muro de la comunidad"
+
+**Sesión 100% autónoma** — el usuario avisó que no iba a estar disponible por 2 horas
+y dio autonomía completa para decisiones de implementación, pidiendo solo documentar
+decisiones y bloqueos reales. Los 2 límites duros respetados sin excepción: **no se
+corrió la migración** (queda lista, sin ejecutar) y **no se hizo git push** (commit
+local solamente).
+
+**Alcance de esta sesión, tal como se pidió**: backend completo + panel de admin. La
+landing pública (`comunidad-melody-landing.html`) **no se tocó** — queda para la
+próxima sesión, a propósito.
+
+#### Reutilización confirmada antes de escribir código
+- Login de familias por código (`POST /api/auth/familia-login`) — el flujo de publicar
+  en el muro usa el mismo JWT de Supabase Auth que ya emite ese endpoint; no se creó
+  ningún mecanismo de auth nuevo.
+- Patrón de moderación (`pending → approved/rejected` de `vidriera_publicaciones`) —
+  calcado para `vidriera_muro` (`pendiente/aprobado/rechazado`), mismo criterio de
+  `service_role` para transiciones de estado.
+- Prefijo `vidriera_` para las 2 tablas nuevas.
+
+#### Decisiones tomadas por cuenta propia (con justificación)
+
+1. **`academia_id` en `vidriera_muro`, aunque no estaba en la lista de campos del
+   pedido**: sin este campo el admin no puede filtrar "los posts de mi academia" ni la
+   RLS puede scopear moderación por academia — que es el patrón que se pidió seguir
+   explícitamente. Se agregó siguiendo el mismo criterio que toda tabla de contenido
+   del proyecto (publicaciones, eventos, agenda).
+2. **`familia_id` referencia `auth.users(id)` directo**, no
+   `vidriera_codigos_familia` — mismo criterio que `owner_user_id`/`user_id` en
+   publicaciones/testimonios/RSVP en todo el proyecto. Es la identidad que usan
+   `auth.uid()` y las políticas RLS; `vidriera_codigos_familia` es 1:1 con esa cuenta
+   pero no es lo que se compara en RLS.
+3. **Sin `motivo_rechazo`**: el pedido listó los campos de la tabla explícitamente y
+   no lo incluía (a diferencia de `vidriera_publicaciones`, que sí lo tiene). Se
+   respetó el schema tal cual se pidió en vez de asumir que hacía falta — fácil de
+   agregar después con un `alter table` si se necesita.
+4. **`vidriera_muro_categorias` es global (sin `academia_id`)**, igual que
+   `vidriera_categorias` — el pedido tampoco la listaba con `academia_id`. A
+   diferencia de esa tabla (fija, sin RLS de escritura), esta sí es editable por el
+   admin (crear/editar/activar-desactivar/reordenar, pedido explícito) — mismo patrón
+   soft-delete que `vidriera_modulos`. Limitación conocida documentada: si algún día
+   conviven varias academias reales en la misma instalación, cualquier admin podría
+   editar el catálogo global de categorías — mismo tipo de limitación ya documentado
+   para otras partes del proyecto (rutas públicas sin scope por academia).
+5. **`PUT /api/admin/muro/:id/estado` con `{estado}` en el body** (un solo endpoint),
+   tal como lo especificó el pedido — distinto del patrón de dos endpoints separados
+   (`.../aprobar` y `.../rechazar`) que usa la moderación de publicaciones. Se siguió
+   la forma exacta que se pidió en vez de copiar ciegamente el patrón viejo.
+6. **Reorder de categorías con drag-and-drop nativo** (`PUT
+   /api/admin/muro/categorias/reorder`) — el pedido decía "reordenar" sin especificar
+   mecanismo; se usó el mismo patrón HTML5 nativo ya establecido 3 veces en el
+   proyecto (Orden de la vidriera, Agenda) en vez de inventar uno nuevo.
+7. **Color: un solo campo hex** (fondo del tag), texto con tinta fija — el pedido
+   decía "color o estilo visual asociado" (singular). No se guardó un segundo color
+   de texto ni se calculó contraste dinámico más que un chequeo simple de luminancia
+   en el frontend (`textoClaro()`) para el caso de que algún día se cargue un color
+   oscuro desde el panel.
+8. **Módulo 'muro' arranca INACTIVO en el catálogo para Melody Music** (documentado
+   como pedido explícitamente): esta sesión no conecta la landing pública, así que
+   activar el módulo no serviría para nada visible todavía — mismo criterio que
+   Eventos/Sponsors, que quedaron inactivos hasta que su UI estuviera completa de
+   punta a punta. El super-admin puede activarlo cuando quiera desde su panel, sin
+   necesidad de otra migración.
+9. **Panel de moderación con filtro por estado** (Pendientes/Aprobados/Rechazados/
+   Todos, default "Pendientes"): el pedido decía "ver posts pendientes, aprobar o
+   rechazar" sin especificar si también debía mostrar el historial ya moderado — se
+   agregó el filtro para que el admin pueda revisar decisiones pasadas sin tener que
+   consultar la base directamente, sin cambiar el comportamiento por defecto pedido
+   (pendientes primero).
+
+#### Backend
+`src/repos/muro.repo.js`, `src/controllers/muro.controller.js`,
+`src/routes/muro.routes.js` (público: `GET /api/muro`, `GET /api/muro/categorias`,
+`POST /api/muro` con `requireAuth` — igual que RSVP/reacciones/testimonios de
+eventos, el rol `cliente` lo exige la política RLS de insert, no un `requireRole` a
+nivel de ruta). Rutas admin en `admin.routes.js`: `GET /api/admin/muro`, `PUT
+/api/admin/muro/:id/estado`, y el CRUD completo de categorías (`GET/POST
+/api/admin/muro/categorias`, `PUT .../reorder` **antes** de `PUT .../:clave` — mismo
+criterio de rutas estáticas antes de `/:id` ya usado en todo el proyecto, `POST
+.../:clave/estado`).
+
+`getMuroAdmin()` resuelve el nombre de familia de cada post con una consulta extra a
+`vidriera_codigos_familia` (por `user_id`), ya que `vidriera_muro.familia_id` no
+denormaliza ningún nombre (a diferencia de `vidriera_publicaciones.familia`, texto
+libre) — se prefirió no denormalizar porque el pedido no lo pedía y la familia ya
+tiene su nombre real en esa otra tabla.
+
+#### Panel de administración
+`public/muro-admin.html`/`css/muro-admin.css`/`js/muro-admin.js` — pantalla standalone
+nueva, mismo patrón que Agenda/Eventos/Sponsors: sesión compartida vía
+`mm_admin_auth_session`, gate de página si el módulo está inactivo, identidad visual
+propia (tokens duplicados, sin compartir CSS con las otras pantallas, ver
+ARQUITECTURA.md §6.3). Dos vistas dentro de la misma pantalla (tabs, no páginas
+separadas, ya que categorías y moderación son parte de un mismo módulo chico):
+"Moderación" (lista con tag de color por categoría, filtro por estado, aprobar/
+rechazar con un click) y "Categorías" (lista con drag-and-drop, alta/edición en panel
+lateral, activar/desactivar). Link agregado a `MODULOS_PANTALLA` en `admin.js`
+(mismo mecanismo data-driven de la sesión #23 — no hizo falta tocar `admin.html`).
+
+#### Verificación — hecha hasta el límite que permiten las 2 reglas duras
+- `node --check` sobre los 5 archivos JS nuevos/editados: sin errores.
+- Balance de tags y ids duplicados en `muro-admin.html`: sin errores.
+- Servidor real levantado: los 3 archivos estáticos nuevos responden `200`; `GET
+  /api/muro` y `GET /api/muro/categorias` responden `500` con
+  `"Could not find the table 'public.vidriera_muro'"` — confirma que el
+  router/controller/repo están bien conectados de punta a punta (mismo patrón de
+  verificación ya usado para Agenda antes de que se corriera su migración); `GET
+  /api/admin/muro` sin token responde `401` (auth intacta).
+- Revisión manual línea por línea de la migración SQL, cruzada contra el patrón ya
+  probado de las migraciones 010/011 (mismos helpers `vidriera_rol()`/
+  `vidriera_academia_id()`, mismo criterio de `on conflict do nothing`).
+- **No se pudo probar contra datos reales** (crear categorías, publicar posts,
+  aprobar/rechazar, confirmar que RLS bloquea escrituras no autorizadas): la
+  migración no está corrida y este entorno no tiene Docker/Postgres local para
+  levantar una copia de prueba — se verificó que no hay ninguna alternativa
+  disponible antes de dar por imposible este paso, no se asumió sin chequear.
+
+**Este es el único bloqueo real de la sesión** (no una preferencia, un impedimento
+concreto: no se puede probar contra tablas que no existen todavía, y está
+explícitamente prohibido crearlas). Documentado acá en vez de quedar esperando,
+como se pidió.
+
+#### Cómo probarlo cuando el usuario vuelva
+1. Correr `db/migrations/012_muro_comunidad.sql` en el SQL Editor de Supabase.
+2. Activar el módulo `muro` para Melody Music desde `super-admin.html` (queda
+   inactivo a propósito, ver decisión #8) — sin esto, `muro-admin.html` va a mostrar
+   el bloqueo "Este módulo no está activo".
+3. Entrar a `muro-admin.html` con la cuenta de admin real — debería verse la pestaña
+   "Categorías" ya con Necesito/Ofrezco/Agradezco cargadas (sembradas por la propia
+   migración) y la pestaña "Moderación" vacía ("Nada pendiente").
+4. Para probar el flujo completo de publicación necesita una familia con sesión real
+   (código de acceso) llamando a `POST /api/muro` con `{contenido, categoria}` y el
+   JWT que devuelve `POST /api/auth/familia-login` — no hay todavía un formulario
+   público para esto (se conecta recién en la próxima sesión), así que para probarlo
+   ahora hace falta un `curl`/Postman a mano, o esperar a que se construya el
+   formulario público.
+5. Con un post pendiente cargado: aprobarlo/rechazarlo desde "Moderación" y confirmar
+   que `GET /api/muro` (público, sin token) solo lo muestra si quedó `aprobado`.
+6. Para confirmar RLS: un intento de `POST /api/muro` con la anon key sin token, o con
+   el JWT de un admin (no cliente), debería fallar con el error de Postgres `42501 —
+   new row violates row-level security policy`.
+
+---
+
 ### Sesión 2026-07-13 #27 — Bug de salto de scroll en el modal de calendario: causa real y fix
 
 Pedido: investigar por qué al abrir el modal de calendario (sesión #26) la
