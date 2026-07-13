@@ -9,6 +9,15 @@ Producto GIZA: vidriera comunitaria de emprendimientos + calendario de eventos p
 academias de música. Cliente de ejemplo: **Melody Music**. Multi-cliente: una misma
 instalación sirve a varias academias, cada una con su set de módulos habilitados.
 
+**Puerta de entrada del sitio** (`familias.melodymusicinstruments.com`, raíz de este
+backend): desde la sesión #25, la raíz **ya no muestra la vidriera pública de
+negocios** — es una pantalla simple de acceso (`public/index.html`) con 3 opciones:
+admin (`/admin.html`), usuario (redirige a la landing pública real, hoy en WordPress:
+`https://comunidad.melodymusicinstruments.com`) y super-admin (`/super-admin.html`,
+discreto). El directorio de emprendimientos como pantalla pública quedó dado de baja
+por completo (ver §4, punto 1) — la lógica de moderación/datos sigue intacta, solo
+cambió qué se ve en la raíz.
+
 ## 2. Stack
 
 - **Runtime:** Node.js (ESM) + Express.
@@ -33,7 +42,15 @@ el panel sin re-emitir JWTs. `super_admin` no está atado a una academia.
 
 1. **Vidriera de emprendimientos** — publicaciones con estado `pending → approved/rejected`.
    Las ediciones sobre una publicación aprobada **no pisan el dato público**: se guardan
-   en `vidriera_publicaciones_ediciones` hasta que el admin las aprueba.
+   en `vidriera_publicaciones_ediciones` hasta que el admin las aprueba. **La pantalla
+   pública que mostraba este directorio (`index.html`/`vidriera.js`) se dio de baja en
+   la sesión #25** — moderación (Cola de aprobación), Orden de la vidriera y
+   Estadísticas del panel admin siguen funcionando exactamente igual (usan
+   `/api/admin/publicaciones`, no la ruta pública). Las rutas públicas
+   (`GET /api/publicaciones`, `GET /api/textos`, `POST /api/auth/familia-login`)
+   quedaron sin ningún frontend que las consuma, pero **deliberadamente no se
+   tocaron** — decisión explícita del usuario de no reducir alcance del backend, solo
+   retirar la pantalla.
 2. **Calendario de eventos** — eventos (concierto/muestra/examen), RSVP, reacciones,
    galería de fotos, testimonios y QR por evento.
 3. **Sponsors y destacados** — sponsors por evento + destacado rotativo guiado por el
@@ -153,8 +170,15 @@ db/
                           hay CLI/psql en este entorno para correrlas: se corren
                           a mano en el SQL Editor de Supabase y quedan documentadas acá)
 public/
-  index.html, admin.html, super-admin.html, css/, js/  frontend estático original
-                         (vidriera de padres + paneles), sin build step
+  index.html, css/index.css  pantalla de acceso de la raíz (admin/usuario/super-admin),
+                         reemplaza a la vidriera pública de negocios desde la sesión #25 —
+                         ver §1. Sin JS propio (son 3 links estáticos).
+  admin.html, super-admin.html, css/styles.css, css/admin.css, css/super-admin.css,
+  js/admin.js, js/super-admin.js  paneles de administración originales, sin build step.
+                         css/styles.css sigue compartido por admin.html y super-admin.html
+                         (contiene componentes .mm-* que ambos usan) — NO se borró ni
+                         podó al dar de baja la vidriera pública, aunque algunas de sus
+                         reglas (.mm-biz-*, .mm-event-*, etc.) quedaron sin uso.
   agenda-admin.html, css/agenda-admin.css, js/agenda-admin.js
                          panel de Agenda — piloto de la nueva dirección visual, ver §6.3
   eventos-admin.html, css/eventos-admin.css, js/eventos-admin.js

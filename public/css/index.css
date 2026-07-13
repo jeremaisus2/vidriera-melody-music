@@ -1,0 +1,122 @@
+/* =====================================================================
+   Melody Music — pantalla de acceso (raíz del sitio)
+   Misma dirección visual que agenda-admin.html/eventos-admin.html/
+   sponsors-admin.html (paleta cream/olive/clay + Playfair Display/Petit
+   Formal Script/Inter), con su propia hoja e ids/clases .ac-* — ver
+   ARQUITECTURA.md §6.3 (cada pantalla mantiene su propio archivo).
+   Reemplaza a la vidriera pública de negocios, que se dio de baja: esta
+   pantalla no tiene lógica propia, son 3 accesos estáticos.
+   ===================================================================== */
+
+:root {
+  --cream: #F7F3EA;
+  --cream-2: #FBF9F3;
+  --ink: #2B2B24;
+  --olive-dark: #38452B;
+  --olive-soft: #7C8A66;
+  --olive-tint: #EAEEE3;
+  --clay: #C97A55;
+  --line: #E4DDCB;
+  --muted: #928d7e;
+  --shadow-lift: 0 18px 40px rgba(40, 34, 14, .14);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.display { font-family: 'Playfair Display', serif; }
+.script { font-family: 'Petit Formal Script', cursive; }
+
+.ac-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--cream-2);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 48px 40px 36px;
+  text-align: center;
+  box-shadow: var(--shadow-lift);
+}
+
+.ac-eyebrow {
+  display: block;
+  font-size: 20px;
+  color: var(--clay);
+  margin-bottom: 2px;
+}
+
+.ac-title {
+  font-size: 34px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: var(--olive-dark);
+}
+
+.ac-sub {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 32px;
+}
+
+.ac-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.ac-btn-solid, .ac-btn-outline {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 20px;
+  border-radius: 100px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.ac-btn-solid {
+  background: var(--olive-dark);
+  color: #fff;
+}
+.ac-btn-solid:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(60, 50, 20, .18);
+}
+
+.ac-btn-outline {
+  background: transparent;
+  color: var(--olive-dark);
+  border: 1px solid var(--line);
+}
+.ac-btn-outline:hover {
+  border-color: var(--olive-soft);
+  background: var(--olive-tint);
+}
+
+.ac-superadmin-link {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+.ac-superadmin-link:hover {
+  color: var(--olive-dark);
+  text-decoration: underline;
+}

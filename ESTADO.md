@@ -208,6 +208,77 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-12 #25 — Baja de la vidriera pública vieja + pantalla de acceso en la raíz
+
+Dos pedidos relacionados con la puerta de entrada del sitio
+(`familias.melodymusicinstruments.com`), ambos verificados con `grep` antes
+de tocar nada (pedido explícito):
+
+**1. Link "Ver landing" corregido** — `public/agenda-admin.html` apuntaba a
+`/comunidad-melody-landing.html` (el archivo que sirve este mismo backend,
+pensado originalmente para embeberse vía iframe). La landing real de
+producción ahora vive en WordPress: `https://comunidad.melodymusicinstruments.com`.
+Se confirmó por búsqueda en todo el proyecto que era el **único** link de
+ese tipo (no hay otro "ver landing" en `eventos-admin.html`,
+`sponsors-admin.html`, `admin.html` ni `super-admin.html`) antes de
+corregirlo.
+
+**2. Vidriera pública de negocios dada de baja, reemplazada por pantalla de
+acceso**: hasta ahora la raíz del sitio mostraba `public/index.html` (el
+directorio de emprendimientos + calendario + testimonios + galería,
+`public/js/vidriera.js`, 841 líneas). Se reemplazó por una pantalla simple
+de 3 accesos (admin → `/admin.html`, usuario → redirige directo a
+`https://comunidad.melodymusicinstruments.com`, super-admin → `/super-admin.html`,
+este último discreto al pie) con la misma identidad visual cream/olive/clay
++ Playfair Display que ya se usa en Agenda/Eventos/Sponsors — archivo nuevo
+`public/css/index.css`, sin JS propio (son 3 links estáticos, no hace falta).
+
+**Investigación previa, mostrada al usuario antes de tocar código** (pedido
+explícito): se confirmó que no existe ninguna ruta backend explícita para
+`index.html` — Express lo sirve por la convención por defecto de
+`express.static` (`GET /` → `public/index.html` si existe), así que
+reemplazar el contenido del archivo ya cumple el pedido sin tocar `app.js`.
+Se confirmó también que `public/css/styles.css` es **compartido** por
+`admin.html` y `super-admin.html` (`.mm-modal`, `.mm-btn-fill`, `.mm-toast`,
+etc.) — **no se tocó ni podó**, aunque algunas de sus reglas específicas de
+la vidriera (`.mm-biz-*`, `.mm-event-*`, `.mm-gallery-*`, etc.) quedaron sin
+uso. Podarlas quedó fuera de alcance a propósito, para no arriesgar romper
+el estilo de las otras dos pantallas por una limpieza no pedida.
+
+**Rutas backend públicas — decisión explícita del usuario, no asumida**: se
+mapeó qué endpoints alimentaba `vidriera.js` (`/api/publicaciones` +
+`/destacado`, `/api/eventos` público completo, `/api/textos` público,
+`/api/auth/familia-login`, `/api/uploads/imagen`) y se confirmó cuáles
+tenían otro consumidor real: `/api/uploads/imagen` lo sigue usando
+`admin.js` (subida de logo/portada en "Crear publicación"), y
+`/api/eventos/:id/sponsors` lo sigue usando `sponsors-admin.js` — por eso
+`eventos.routes.js` y `uploads.routes.js` no se tocaron ni un poco.
+`/api/publicaciones`, `/api/textos` (público) y `/api/auth/familia-login`
+quedan **sin ningún consumidor**, pero el usuario confirmó explícitamente
+dejarlos como están (ni se borran ni se tocan) — quedan ahí, inofensivos,
+por si se necesitan reactivar desde otro frontend más adelante.
+
+**Cero cambios en lógica de admin**: moderación, orden de la vidriera,
+estadísticas siguen funcionando igual — usan `/api/admin/*`, no las rutas
+públicas que perdieron su frontend. Tampoco se tocó Agenda, Eventos,
+Sponsors ni el sistema de catálogo de módulos.
+
+**Verificado**:
+- Servidor real levantado: `GET /` y `GET /index.html` sirven la pantalla
+  nueva (978 bytes); `admin.html`/`super-admin.html`/`agenda-admin.html`
+  siguen respondiendo 200 sin cambios; `css/styles.css` se sigue sirviendo
+  intacto (mismo tamaño que antes); `js/vidriera.js` ahora da 404 (borrado a
+  propósito).
+- Las rutas públicas huérfanas (`/api/publicaciones`, `/api/textos`) siguen
+  respondiendo `200` contra Supabase real — confirmado que "dejarlas como
+  están" significa que siguen andando, no que se rompieron por accidente.
+- Balance de tags en el `index.html` nuevo, sin errores.
+
+**Sin commit/push en esta sesión** — pedido explícito, queda para que el
+usuario revise primero.
+
+---
+
 ### Sesión 2026-07-12 #24 — Gating del resto del sidebar por catálogo real de módulos
 
 Pedido explícito: extender el gating de la sesión #23 (que hasta ahora solo
