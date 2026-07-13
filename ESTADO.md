@@ -208,6 +208,130 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-13 #27 — Bug de salto de scroll en el modal de calendario: causa real y fix
+
+Pedido: investigar por qué al abrir el modal de calendario (sesión #26) la
+página saltaba hacia arriba, antes de arreglar nada. Se usó Playwright real
+(headless Chromium, disponible en este entorno vía `npx playwright` aunque
+no es una dependencia del proyecto) para reproducir el bug en vez de
+teorizar — la causa resultó **distinta** a las dos hipótesis planteadas en
+el pedido, aunque relacionada.
+
+**Causa raíz real, confirmada empíricamente**: `comunidad-melody-landing.html`
+era la única pantalla de todo el proyecto con un `<script>` **inline** (el
+resto —`admin.js`, `agenda-admin.js`, etc.— siempre cargó un archivo
+externo). El CSP de `src/app.js` (helmet) nunca agregó `'unsafe-inline'` a
+`script-src` — hereda el default `script-src 'self'`, que **bloquea
+cualquier script inline**. Confirmado viendo el error real en la consola
+del navegador ("Executing inline script violates... 'script-src 'self''").
+Esto significa que **ningún JS de esta página corría** cuando se servía por
+este backend — ni el menú mobile, ni el fetch de agenda, ni el auto-resize
+del iframe, ni el calendario nuevo. Bug preexistente desde la sesión
+original de Agenda (#21), no introducido por el calendario.
+
+Con el script bloqueado, ningún `addEventListener` llegaba a registrarse:
+clickear el botón "Ver toda la agenda" (sin `href`, sin acción por
+defecto) no hacía nada; clickear el link "Ver calendario completo →"
+(`href="#"`) disparaba el salto **nativo** del navegador al tope de la
+página, porque su `preventDefault()` nunca se ejecutaba. Verificado con
+Playwright: con el script bloqueado, el link lleva `scrollY` de 1400 a
+exactamente `0`; el botón no mueve el scroll. Con el script corriendo
+(probado cargando el HTML sin pasar por el CSP), abrir el modal con un
+click real por coordenadas (no por selector — `page.click()` de Playwright
+auto-scrollea el elemento antes de clickear, lo cual daba un falso
+positivo de "salto" que había que descartar primero) **no generaba ningún
+salto**: la lógica del modal en sí ya estaba bien.
+
+**Fix 1 — mover el script a un archivo externo** (elegido por el usuario
+sobre relajar el CSP con `'unsafe-inline'`, que hubiera debilitado la
+protección XSS de toda la app, no solo esta pantalla): nuevo
+`public/js/comunidad-melody-landing.js` con todo el contenido que antes
+era inline; `comunidad-melody-landing.html` ahora carga
+`<script src="/js/comunidad-melody-landing.js"></script>`. Mismo patrón
+que ya usa el resto del proyecto.
+
+**Fix 2 — scroll-lock/restore robusto**: se guarda `window.scrollY` antes
+de abrir el modal y se restaura exacto al cerrar (las 3 formas: X, click
+afuera, Escape) en vez de confiar en que `overflow:hidden` por sí solo
+preserve la posición. Además, el bloqueo de scroll de fondo ahora se aplica
+tanto a `document.documentElement` como a `document.body` — se confirmó
+con Playwright que `document.scrollingElement` en esta página es `<html>`,
+no `<body>` (el código viejo, y el del lightbox de imagen preexistente,
+solo bloqueaba `body`).
+
+**Hallazgo adicional, no pedido pero crítico para la función de embeber en
+WordPress**: mientras se armaba una prueba de la variante embebida, se
+encontró que este backend envía `X-Frame-Options: SAMEORIGIN` y CSP
+`frame-ancestors 'self'` (ambos defaults de helmet, nunca ajustados) — un
+navegador real **bloquearía por completo** que `comunidad.melodymusicinstruments.com` (WordPress) embeba un iframe apuntando a
+`familias.melodymusicinstruments.com` (este backend), por ser dos
+subdominios = dos orígenes distintos. Esto significa que la función de
+embeber por iframe construida en sesiones anteriores nunca se probó contra
+un embed cross-origin real. **No se tocó todavía** — requiere saber el
+dominio exacto de WordPress para permitirlo explícitamente en
+`frame-ancestors` (y ajustar `X-Frame-Options`, que no soporta múltiples
+orígenes del mismo modo), y toca `src/app.js` (config de seguridad
+compartida por toda la app) — queda pendiente de una decisión del usuario,
+reportado pero no resuelto en esta sesión.
+
+**Fix 3 — comunicación padre→iframe para centrar el modal en la parte
+visible real** (pedido explícito, ampliando el alcance original): como el
+`<iframe>` usa `scrolling="no"` y su alto se ajusta exacto al contenido, el
+scroll real ocurre en la página de WordPress por fuera — `position:fixed`
+adentro del iframe no tiene forma de saber qué parte de sí mismo está
+visible. Se agregó al snippet de WordPress
+(`public/snippets/wordpress-iframe-comunidad-melody.html`) un listener de
+`scroll`/`resize` (throttleado con `requestAnimationFrame`) que calcula la
+franja visible del iframe y se la postea hacia adentro
+(`{tipo:'melody-visible-range', top, height}`); `comunidad-melody-landing.js`
+la escucha y, si detecta que corre dentro de un iframe
+(`window.self !== window.top`), reposiciona el modal de `position:fixed`
+a `position:absolute` acotado a esa franja (con reposicionamiento en vivo
+si el rango cambia mientras el modal ya está abierto). En la vista
+standalone (sin iframe) no cambia nada, sigue usando `position:fixed` tal
+cual.
+
+**Bug real encontrado y corregido durante la verificación con
+Playwright**: la primera versión de `posicionarModalEnIframe()` fijaba
+`top`/`left`/`right` y DESPUÉS reasignaba `element.style.inset = 'auto'`
+— `inset` es el shorthand de los 4 lados, así que esa línea pisaba de
+nuevo el `top` que se acababa de fijar, dejándolo en `auto` (confirmado:
+el modal terminaba en la posición del `position:fixed` original, no en el
+rango posteado). Corregido fijando `top`/`bottom`/`left`/`right`
+individualmente, sin tocar nunca el shorthand después.
+
+**Verificado con Playwright, contra el servidor real y los 2 eventos de
+prueba reales (18 y 23 de julio 2026)**:
+- Vista standalone: 0 errores de CSP en consola, agenda carga sin
+  skeleton, abrir el modal no mueve `scrollY` (1400→1400), el fondo no
+  scrollea con el modal abierto (probado con rueda del mouse), click en el
+  día 18/07 muestra el detalle correcto ("Concierto de prueba", "Lugar de
+  prueba", "21:00 hs"), cerrar con Escape restaura `scrollY` exacto y el
+  `overflow` de `html`/`body`, navegación mes anterior/siguiente cambia el
+  label correctamente.
+- Vista embebida (simulada con un host de prueba en el mismo origen, para
+  no toparse con el bloqueo de `X-Frame-Options` recién encontrado):
+  posteando un rango visible de prueba (`top:950, height:800`), el modal
+  queda exactamente en `position:absolute; top:950px; height:800px`; al
+  postear un rango nuevo con el modal ya abierto, se reposiciona en vivo;
+  al cerrar, vuelve a `position` vacío (cae de nuevo al `fixed` del CSS,
+  comportamiento normal standalone).
+- Limpieza: los archivos de prueba (`_wp-host-sameorigin-TEST.html/.js`)
+  que se habían copiado a `public/` para poder probar el caso embebido sin
+  el bloqueo de `X-Frame-Options` se borraron al terminar — no quedan en
+  el repo.
+
+**Sin commit/push en esta sesión** — pedido explícito, queda para que el
+usuario revise primero.
+
+**Pendiente, remarcado para la próxima sesión**: decidir y aplicar el fix
+de `X-Frame-Options`/`frame-ancestors` en `src/app.js` para permitir el
+embed real desde el dominio de WordPress — sin esto, el iframe en
+producción probablemente no se muestre en absoluto si WordPress está en un
+subdominio distinto a este backend.
+
+---
+
 ### Sesión 2026-07-13 #26 — Modal de calendario mensual en comunidad-melody-landing.html
 
 Pedido: un calendario mensual tipo Google Calendar (grid, navegación mes

@@ -1,7 +1,11 @@
 <!--
   Snippet para WordPress/Elementor — embebe comunidad-melody-landing.html
   (y a futuro los demás HTML de la landing) vía <iframe>, con auto-ajuste
-  de altura.
+  de altura Y con el rango visible del iframe posteado hacia adentro (lo
+  usa el modal de calendario de la Agenda para centrarse en la parte de
+  la pantalla que el usuario está mirando, en vez de en el medio de todo
+  el alto del iframe — ver comentario en public/js/comunidad-melody-
+  landing.js, función posicionarModalEnIframe).
 
   Cómo usarlo:
   1. Pegar este bloque en un widget "HTML" de Elementor (o en el editor de
@@ -10,7 +14,10 @@
      backend (ej: familias.melodymusicinstruments.com).
   3. No hace falta configurar nada más: comunidad-melody-landing.html ya
      postea su altura real vía postMessage, este script la escucha y
-     ajusta el <iframe> — sin scrollbar interno ni bordes visibles.
+     ajusta el <iframe> — sin scrollbar interno ni bordes visibles. Este
+     mismo script también le avisa al iframe qué franja suya está
+     actualmente visible en la pantalla, cada vez que esta página
+     scrollea o cambia de tamaño.
 -->
 <iframe
   id="melody-comunidad-iframe"
@@ -23,11 +30,38 @@
 <script>
   (function () {
     var iframe = document.getElementById('melody-comunidad-iframe');
+
     window.addEventListener('message', function (event) {
       var data = event.data;
       if (data && data.tipo === 'melody-agenda-resize' && typeof data.height === 'number') {
         iframe.style.height = data.height + 'px';
       }
     });
+
+    // Le avisa al iframe qué franja de su propio documento coincide con
+    // el viewport visible de ESTA página (la que realmente scrollea —
+    // el iframe usa scrolling="no" y no tiene scroll propio). Sin esto,
+    // "position:fixed" adentro del iframe se centra respecto a su alto
+    // total (que puede ser miles de píxeles), no respecto a lo que el
+    // usuario está mirando.
+    var pendiente = false;
+    function postVisibleRange() {
+      if (pendiente) return;
+      pendiente = true;
+      requestAnimationFrame(function () {
+        pendiente = false;
+        var rect = iframe.getBoundingClientRect();
+        var top = Math.max(0, -rect.top); // cuánto del iframe quedó scrolleado por arriba del viewport
+        var height = window.innerHeight;
+        if (iframe.contentWindow) {
+          iframe.contentWindow.postMessage({ tipo: 'melody-visible-range', top: top, height: height }, '*');
+        }
+      });
+    }
+
+    window.addEventListener('scroll', postVisibleRange, { passive: true });
+    window.addEventListener('resize', postVisibleRange);
+    iframe.addEventListener('load', postVisibleRange);
+    postVisibleRange();
   })();
 </script>
