@@ -208,6 +208,113 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-13 #29 — Muro de la comunidad conectado a la landing pública
+
+Conecta el backend de la sesión #28 (ya con la migración 012 corrida y el módulo
+`muro` activado por el usuario entre sesiones) con `comunidad-melody-landing.html`:
+panel dinámico, publicación por familias, y modal de muro completo.
+
+**Investigación previa, pedida explícitamente antes de tocar nada**: se recuperó por
+`git show` el `public/js/vidriera.js` original (borrado en la sesión #25 junto con la
+vidriera pública vieja, pero el mecanismo de auth que consume nunca se tocó) para
+confirmar el mecanismo exacto de sesión de familia:
+- `POST /api/auth/familia-login` con `{codigo}` devuelve
+  `{access_token, expires_in, nombre_familia}`.
+- La sesión se guarda en `localStorage` bajo la clave **`mm_auth_session`** (distinta
+  de `mm_admin_auth_session` que usan los paneles de admin) como
+  `{access_token, expires_at, nombre_familia}`, y se **reutiliza** para llamadas
+  futuras mientras no expire — la familia NO tiene que reingresar el código para
+  cada acción.
+- Patrón de encadenamiento `openLoginModal(afterLogin)`: si una acción requiere
+  sesión y no hay una activa, se abre el login primero y, recién tras un login
+  exitoso, se ejecuta automáticamente la acción original.
+
+Se reusó este mecanismo **exactamente igual** (misma clave de localStorage, mismo
+endpoint, mismo patrón de encadenamiento) — cero invención.
+
+#### 1. Panel del Muro con datos reales
+Los 3 `.wall-post` hardcodeados se reemplazaron por un fetch a `GET /api/muro` +
+`GET /api/muro/categorias` (en paralelo). El tag de categoría ya no usa las clases
+CSS fijas `.wall-tag.necesito/.ofrezco/.agradezco` (no sirven para categorías nuevas
+que el admin agregue) — el color viene inline desde `vidriera_muro_categorias.color`,
+con el texto del tag en un tono de tinta oscuro fijo (mismo criterio ya usado en
+`muro-admin.js`, sin calcular contraste dinámico). El panel chico muestra los 3 posts
+más recientes (los datos ya vienen ordenados por fecha desde el backend). **Sin datos
+de comentarios/reacciones**: no existen en el backend real (`vidriera_muro` no los
+tiene), así que se sacaron del diseño en vez de inventarlos, tal como se pidió.
+
+#### 2. Botón "Solicitar publicación" + modal con login encadenado
+Nuevo botón junto a "Ver más publicaciones" (mismo estilo `.btn-solid`, más un estilo
+outline nuevo `.btn-ghost-wall` para diferenciarlos visualmente sin competir). Flujo:
+sin sesión → modal de código de acceso (nuevo, `#familiaLoginModal`) → tras login
+exitoso, se cierra solo y se abre automáticamente el formulario de publicación
+(categoría poblada dinámicamente desde `/api/muro/categorias`, contenido) → `POST
+/api/muro` con el JWT de la sesión → confirmación clara dentro del mismo modal ("Tu
+publicación fue enviada y está esperando aprobación..."), sin depender de un toast
+que se pueda perder.
+
+#### 3. Modal "Ver muro completo" — reuso real del mecanismo del calendario
+Antes de escribir el modal nuevo, se **generalizó** la lógica de scroll-lock +
+posicionamiento en iframe que ya estaba probada para el calendario (sesión #27):
+`abrirModal(modalEl)`/`cerrarModal(modalEl)`/`posicionarModalEnIframe(modalEl)`/
+`restaurarPosicionModal(modalEl)` ahora reciben el elemento como parámetro en vez de
+usar `calendarModal` fijo — el calendario se migró a usar las mismas funciones
+genéricas (cero duplicación), y el modal nuevo del muro las reusa tal cual. Se agregó
+un tracker `modalAbierto` (cuál de los modales genéricos está abierto ahora mismo)
+para que Escape y el reposicionamiento en vivo por `postMessage` del iframe sepan a
+cuál aplicarse — antes esa lógica apuntaba directo a `calendarModal`.
+
+El modal nuevo lista todos los posts aprobados (mismo `muroPostsCache` que ya trajo
+el panel chico, sin un segundo fetch) con pills de filtro por categoría ("Todas" +
+cada categoría activa), client-side, sin parámetro nuevo en el backend.
+
+**CSS de los 3 modales nuevos**: se creó una receta genérica `.site-modal`/
+`.site-modal-inner` (misma que `.calendar-modal`/`.calendar-modal-inner` pero
+duplicada bajo un nombre propio) — mismo criterio de "no compartir CSS entre
+componentes independientes" ya aplicado en todo el proyecto, para no arriesgar el
+calendario ya probado al iterar sobre los modales nuevos.
+
+#### Verificado con Playwright contra Supabase real (migración 012 ya corrida y
+módulo activo — confirmado al arrancar la sesión), con un admin y una familia de
+prueba descartables, creados y borrados en la misma corrida:
+- 0 errores de CSP (el fix de la sesión #27 sigue funcionando con el código nuevo).
+- Flujo completo real: click en "Solicitar publicación" sin sesión → login modal se
+  abre → código real → login modal se cierra → formulario se abre solo (encadenado)
+  → categorías reales en el `<select>` (Necesito/Ofrezco/Agradezco) → sesión
+  persistida en `localStorage` con el nombre de familia correcto → envío → mensaje de
+  confirmación visible con el texto exacto pedido → cierre del modal.
+- Post creado en Supabase con `estado: 'pendiente'` y la categoría correcta.
+- `GET /api/muro` público **no** lo mostraba antes de aprobar, y sí después de
+  aprobarlo con el admin de prueba (vía `PUT /api/admin/muro/:id/estado`).
+- RLS: intento de insert directo con la anon key (sin auth) → bloqueado,
+  `42501 — new row violates row-level security policy`.
+- Modal "Ver muro completo": cero salto de scroll al abrir, el post recién aprobado
+  aparece en la lista, el filtro por categoría "Necesito" excluye correctamente un
+  post cargado como "Ofrezco", `scrollY` se restaura exacto al cerrar con Escape.
+- Limpieza confirmada: 0 posts de prueba y 0 usuarios de prueba (`claude-test-*`)
+  restantes en Supabase al terminar.
+
+**Sin commit/push en esta sesión** — pedido explícito, queda para que el usuario
+revise primero.
+
+#### Cómo probarlo
+- **Categorías disponibles hoy**: Necesito, Ofrezco, Agradezco (las 3 sembradas por
+  la migración 012) — el admin puede agregar más desde `muro-admin.html` → pestaña
+  Categorías, y van a aparecer automáticamente en el `<select>` del formulario
+  público sin tocar código.
+- **No hace falta un código de familia real de antemano**: cualquier código creado
+  desde `admin.html` → sección "Familias" (la gestión de familias no está en
+  `muro-admin.html`, sigue siendo exclusiva de esa pantalla) sirve para probar el
+  flujo completo de publicación.
+- **Qué deberías ver en cada paso**: el panel "Muro de la comunidad" de la landing
+  debería mostrar cualquier post que ya hayas aprobado (o el estado vacío si no hay
+  ninguno todavía); al clickear "Solicitar publicación" sin sesión aparece el pedido
+  de código; con un código real, se abre automáticamente el formulario; al enviar,
+  el post queda pendiente — para verlo público hay que aprobarlo desde
+  `muro-admin.html` → pestaña Moderación.
+
+---
+
 ### Sesión 2026-07-13 #28 — Backend completo del módulo "Muro de la comunidad"
 
 **Sesión 100% autónoma** — el usuario avisó que no iba a estar disponible por 2 horas

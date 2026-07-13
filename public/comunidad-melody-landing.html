@@ -204,6 +204,14 @@
   .wall-tag.agradezco{background:#DCE6CE; color:var(--olive-dark);}
   .wall-post p{font-size:13px; line-height:1.5; margin-bottom:6px;}
   .wall-meta{font-size:11px; color:#9a9686;}
+  .wall-skeleton{height:44px; width:100%; border-radius:8px; background:linear-gradient(90deg, var(--line) 25%, #efe9d9 37%, var(--line) 63%); background-size:400% 100%; animation:agendaShimmer 1.4s ease infinite;}
+  .wall-empty{padding:14px 0; font-size:12.5px; color:#9a9686;}
+  .wall-actions{margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;}
+  .btn-ghost-wall{
+    background:transparent; border:1px solid var(--ink); color:var(--ink);
+    border-radius:100px; padding:11px 20px; font-size:13px; font-weight:600; cursor:pointer;
+  }
+  .btn-ghost-wall:hover{background:var(--ink); color:#fff;}
 
   .agenda-row{display:flex; gap:14px; padding:11px 0; border-bottom:1px solid var(--line); align-items:center;}
   .agenda-row:last-child{border-bottom:none;}
@@ -408,6 +416,59 @@
     .quick-icons{grid-template-columns:repeat(2,1fr);}
     .news-grid{grid-template-columns:1fr;}
   }
+
+  /* ---------- MODALES DEL MURO (login por código, solicitar publicación,
+     ver muro completo) ----------
+     Misma receta visual que .calendar-modal/.calendar-modal-inner (overlay
+     con blur + caja cream con scroll propio), duplicada bajo un nombre
+     genérico .site-modal para no modificar el CSS ya probado del
+     calendario — mismo criterio de "no compartir entre componentes
+     independientes" ya aplicado en el resto del proyecto. */
+  .site-modal{
+    display:none; position:fixed; inset:0; z-index:1000;
+    background:rgba(8,12,6,.55); backdrop-filter:blur(3px);
+    align-items:center; justify-content:center; padding:24px;
+  }
+  .site-modal.open{display:flex;}
+  .site-modal-inner{
+    width:100%; max-width:460px; max-height:85vh; overflow-y:auto;
+    background:var(--cream-2); border-radius:20px; padding:28px 26px 24px;
+    box-shadow:0 30px 70px rgba(0,0,0,.35);
+    animation:modalIn .25s ease;
+  }
+  @media (prefers-reduced-motion: reduce){ .site-modal-inner{animation:none;} }
+
+  .site-modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .site-modal-title{font-family:'Playfair Display',serif; font-size:19px; font-weight:600; color:var(--ink);}
+  .site-modal-sub{font-size:12.5px; color:#9a9686; margin:-8px 0 16px;}
+  .site-modal-close{
+    width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:#fff;
+    font-size:14px; color:#6b6a5e; cursor:pointer; flex:none;
+  }
+  .site-modal-close:hover{border-color:var(--clay); color:var(--clay);}
+
+  .site-field{display:flex; flex-direction:column; gap:6px; margin-bottom:14px; font-size:12.5px;}
+  .site-field span{font-weight:700; color:var(--ink);}
+  .site-field input, .site-field select, .site-field textarea{
+    font-family:'Inter',sans-serif; font-size:13.5px; padding:10px 12px;
+    border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink);
+  }
+  .site-field textarea{resize:vertical;}
+  .site-form-error{font-size:12px; color:#b3372c; background:#fbe9e7; border-radius:8px; padding:8px 12px; margin:-4px 0 12px;}
+  .site-modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:4px;}
+
+  .site-confirm{text-align:center; padding:12px 4px 6px;}
+  .site-confirm-icon{width:52px; height:52px; margin:0 auto 14px; border-radius:50%; background:var(--olive-dark); color:#fff; display:flex; align-items:center; justify-content:center; font-size:24px;}
+  .site-confirm p{font-size:13.5px; color:var(--ink); line-height:1.5; margin-bottom:18px;}
+
+  /* Ver muro completo: filtro por categoría + lista larga */
+  .wall-filtro{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px;}
+  .wall-filtro-pill{
+    font-size:11px; font-weight:700; padding:6px 13px; border-radius:100px; cursor:pointer;
+    background:transparent; border:1px solid var(--line); color:#6b6a5e;
+  }
+  .wall-filtro-pill.active{background:var(--ink); border-color:var(--ink); color:#fff;}
+  .wall-full-list{max-height:50vh; overflow-y:auto;}
 </style>
 </head>
 <body>
@@ -568,22 +629,15 @@
 
     <div class="panel">
       <h3>Muro de la comunidad</h3>
-      <div class="wall-post">
-        <span class="wall-tag necesito">NECESITO</span>
-        <p>Busco profesor/a de matemática para nivel secundario.</p>
-        <span class="wall-meta">Hace 1 hora · 💬 3</span>
+      <div id="wallList">
+        <div class="wall-post"><div class="wall-skeleton"></div></div>
+        <div class="wall-post"><div class="wall-skeleton"></div></div>
+        <div class="wall-post"><div class="wall-skeleton"></div></div>
       </div>
-      <div class="wall-post">
-        <span class="wall-tag ofrezco">OFREZCO</span>
-        <p>Tengo un teclado en excelente estado para vender.</p>
-        <span class="wall-meta">Hace 3 horas · 💬 1</span>
+      <div class="wall-actions">
+        <button type="button" class="btn-solid" id="verMuroCompletoBtn">Ver más publicaciones</button>
+        <button type="button" class="btn-ghost-wall" id="solicitarPublicacionBtn">Solicitar publicación</button>
       </div>
-      <div class="wall-post">
-        <span class="wall-tag agradezco">AGRADEZCO</span>
-        <p>Gracias a la comunidad conseguí trabajo. ¡Qué lindo ser parte!</p>
-        <span class="wall-meta">Hace 5 horas · 💬 6</span>
-      </div>
-      <div style="margin-top:14px;"><button class="btn-solid">Ver más publicaciones</button></div>
     </div>
 
     <div class="panel">
@@ -694,6 +748,76 @@
     <div class="cal-detail" id="calDetail">
       <p class="cal-detail-empty">Elegí un día marcado para ver sus eventos.</p>
     </div>
+  </div>
+</div>
+
+<!-- Login por código de familia (mismo mecanismo que ya usaba vidriera.js:
+     POST /api/auth/familia-login, sesión guardada en localStorage bajo
+     mm_auth_session, reusada para publicar sin pedir el código de nuevo
+     mientras no expire). Se encadena antes de "Solicitar publicación" si
+     todavía no hay sesión activa. -->
+<div class="site-modal" id="familiaLoginModal">
+  <div class="site-modal-inner">
+    <div class="site-modal-head">
+      <span class="site-modal-title">Ingresá con tu código de familia</span>
+      <button type="button" class="site-modal-close" id="familiaLoginCloseBtn" aria-label="Cerrar">✕</button>
+    </div>
+    <p class="site-modal-sub">Usá el código que te compartió la academia para publicar en el muro.</p>
+    <form id="familiaLoginForm">
+      <label class="site-field">
+        <span>Código de acceso</span>
+        <input type="password" id="familiaLoginCodigo" required autocomplete="current-password">
+      </label>
+      <p class="site-form-error" id="familiaLoginError" hidden></p>
+      <div class="site-modal-actions">
+        <button type="button" class="btn-ghost-wall" id="familiaLoginCancelBtn">Cancelar</button>
+        <button type="submit" class="btn-solid">Ingresar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Solicitar publicación: categoría (dinámica, GET /api/muro/categorias) +
+     contenido -> POST /api/muro (queda pendiente de aprobación). -->
+<div class="site-modal" id="solicitarPublicacionModal">
+  <div class="site-modal-inner">
+    <div class="site-modal-head">
+      <span class="site-modal-title">Solicitar publicación</span>
+      <button type="button" class="site-modal-close" id="solicitarCloseBtn" aria-label="Cerrar">✕</button>
+    </div>
+    <p class="site-modal-sub">Tu mensaje se revisa antes de publicarse en el muro.</p>
+    <form id="solicitarForm">
+      <label class="site-field">
+        <span>Categoría</span>
+        <select id="solicitarCategoria" required></select>
+      </label>
+      <label class="site-field">
+        <span>Tu mensaje</span>
+        <textarea id="solicitarContenido" rows="4" required maxlength="500" placeholder="Contanos qué necesitás, ofrecés o querés agradecer…"></textarea>
+      </label>
+      <p class="site-form-error" id="solicitarError" hidden></p>
+      <div class="site-modal-actions">
+        <button type="button" class="btn-ghost-wall" id="solicitarCancelBtn">Cancelar</button>
+        <button type="submit" class="btn-solid" id="solicitarSubmitBtn">Enviar</button>
+      </div>
+    </form>
+    <div class="site-confirm" id="solicitarConfirm" hidden>
+      <div class="site-confirm-icon">✓</div>
+      <p>Tu publicación fue enviada y está esperando aprobación. En cuanto el admin la revise, va a aparecer en el muro.</p>
+      <button type="button" class="btn-solid" id="solicitarConfirmCloseBtn">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ver muro completo: todos los aprobados + filtro opcional por categoría. -->
+<div class="site-modal" id="muroCompletoModal">
+  <div class="site-modal-inner">
+    <div class="site-modal-head">
+      <span class="site-modal-title">Muro de la comunidad</span>
+      <button type="button" class="site-modal-close" id="muroCompletoCloseBtn" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="wall-filtro" id="muroFiltro"></div>
+    <div class="wall-full-list" id="muroFullList"></div>
   </div>
 </div>
 
