@@ -208,15 +208,29 @@ async function verifyAdminAndEnter() {
   loadOrden();
   loadTextos();
   loadFamilias();
-  loadModulosNav();
+  aplicarGatingModulos();
 }
 
 // ---------------------------------------------------------------------------
-// Links del sidebar a pantallas standalone (Agenda, Eventos, Sponsors) —
-// mostrados SOLO si el módulo está activo para esta academia según el
-// catálogo real (GET /api/admin/modulos, ver superadminRepo.getModulosAcademia).
-// Antes de esto, el link de Agenda estaba fijo en el HTML sin pasar por
-// ningún chequeo — ahora los 3 se renderizan acá según corresponda.
+// Gating del sidebar por catálogo real de módulos (GET /api/admin/modulos,
+// ver superadminRepo.getModulosAcademia) — dos partes:
+//
+// 1. Links a pantallas standalone (Agenda, Eventos, Sponsors): antes de esto
+//    Agenda tenía un <a> fijo en el HTML sin pasar por ningún chequeo; ahora
+//    los 3 se arman acá según el módulo esté activo.
+// 2. Ítems del sidebar que corresponden a módulos existentes de esta misma
+//    pantalla: "Cola de aprobación"/"Orden de la vidriera"/"Textos de la
+//    página" → clave 'vidriera' (las 3 operan sobre vidriera_publicaciones/
+//    vidriera_textos, mismo dominio); "Estadísticas de vistas" → clave
+//    'estadisticas'. "Familias" queda siempre visible a propósito: es
+//    transversal a más de un módulo (acceso para vidriera Y para eventos) y
+//    no tiene clave propia en el catálogo — no se gatea.
+//
+// Fail-open si /api/admin/modulos falla (error de red): no se oculta nada.
+// El catálogo acá es un gate de VISIBILIDAD, no de seguridad (los
+// endpoints ya están protegidos por rol) — ocultar la cola de moderación
+// por un error transitorio dejaría al admin sin poder hacer su trabajo
+// diario, algo mucho más costoso que dejar ver de más por un rato.
 // ---------------------------------------------------------------------------
 const MODULOS_PANTALLA = [
   { clave: 'agenda',   href: '/agenda-admin.html',   label: 'Agenda' },
@@ -224,21 +238,44 @@ const MODULOS_PANTALLA = [
   { clave: 'sponsors', href: '/sponsors-admin.html', label: 'Sponsors' },
 ];
 
-async function loadModulosNav() {
+const SECCIONES_CORE = [
+  { id: 'queue',  navBtnId: 'navQueueBtn',    clave: 'vidriera' },
+  { id: 'orden',  navBtnId: 'navOrdenBtn',    clave: 'vidriera' },
+  { id: 'textos', navBtnId: 'navTextosBtn',   clave: 'vidriera' },
+  { id: 'stats',  navBtnId: 'navStatsBtn',    clave: 'estadisticas' },
+  { id: 'familias', navBtnId: 'navFamiliasBtn', clave: null }, // siempre visible
+];
+
+async function aplicarGatingModulos() {
   const { ok, data } = await apiGet('/api/admin/modulos');
+  const activos = ok ? new Set(data.filter((m) => m.activo).map((m) => m.clave)) : null;
+
+  // --- Ítems core del sidebar ---
+  const idsVisibles = new Set();
+  SECCIONES_CORE.forEach((s) => {
+    const visible = !s.clave || !activos || activos.has(s.clave);
+    if (visible) idsVisibles.add(s.id);
+    document.getElementById(s.navBtnId).hidden = !visible;
+  });
+
+  // Si la sección activa por default ("queue") quedó oculta, saltar a la
+  // primera sección visible en el orden del sidebar en vez de dejar el
+  // panel principal en blanco.
+  if (!idsVisibles.has('queue') && idsVisibles.size > 0) {
+    setActiveSection(SECCIONES_CORE.find((s) => idsVisibles.has(s.id)).id);
+  }
+
+  // --- Links a pantallas standalone (Agenda/Eventos/Sponsors) ---
   const wrap = document.getElementById('modulosNav');
   const divider = document.getElementById('modulosDivider');
-  if (!ok) {
+  if (!activos) {
     wrap.innerHTML = '';
     divider.hidden = true;
     return;
   }
-
-  const activos = new Set(data.filter((m) => m.activo).map((m) => m.clave));
-  const visibles = MODULOS_PANTALLA.filter((m) => activos.has(m.clave));
-
-  divider.hidden = visibles.length === 0;
-  wrap.innerHTML = visibles.map((m) => `<a href="${m.href}" class="mm-sidebar-item">${m.label} ↗</a>`).join('');
+  const visiblesPantalla = MODULOS_PANTALLA.filter((m) => activos.has(m.clave));
+  divider.hidden = visiblesPantalla.length === 0;
+  wrap.innerHTML = visiblesPantalla.map((m) => `<a href="${m.href}" class="mm-sidebar-item">${m.label} ↗</a>`).join('');
 }
 
 // ---------------------------------------------------------------------------

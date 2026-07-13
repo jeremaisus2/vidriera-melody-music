@@ -96,6 +96,10 @@ a:hover { color: #2e3722; }
   font-family: var(--font-body); font-size: 13px; font-weight: 600;
   color: var(--body-text); background: none; border: none; cursor: pointer;
 }
+/* .mm-sidebar-item fija display:block — sin este override, ocultar un ítem
+   vía JS (el.hidden = true) no alcanza (ver banner de styles.css: una regla
+   de autor con display siempre le gana a la regla [hidden] del navegador). */
+.mm-sidebar-item[hidden] { display: none; }
 button.mm-sidebar-item:hover { background: var(--surface); }
 .mm-sidebar-item.active { background: var(--accent-tint); color: var(--accent); }
 .mm-sidebar-item.disabled { color: var(--border); cursor: default; }

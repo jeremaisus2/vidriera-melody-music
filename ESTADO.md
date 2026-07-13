@@ -208,6 +208,84 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-12 #24 — Gating del resto del sidebar por catálogo real de módulos
+
+Pedido explícito: extender el gating de la sesión #23 (que hasta ahora solo
+cubría Agenda/Eventos/Sponsors) al resto de los ítems del sidebar de
+`admin.html` que corresponden a módulos reales del catálogo — "Cola de
+aprobación", "Orden de la vidriera", "Textos de la página" y "Estadísticas
+de vistas" seguían renderizándose siempre, fijos, sin mirar el catálogo.
+
+**Mapeo confirmado con el usuario antes de tocar nada** (pedido explícito,
+no se asumió ninguno de estos puntos):
+- "Cola de aprobación" (+ botón "Crear publicación") → clave **`vidriera`**
+  (opera sobre `vidriera_publicaciones`).
+- "Orden de la vidriera" (+ destacado override) → también **`vidriera`**
+  (mismo dominio de datos, sin clave propia).
+- "Textos de la página" → también **`vidriera`** (edita textos de la
+  vidriera pública, sin clave propia en el catálogo).
+- "Estadísticas de vistas" → clave **`estadisticas`** (coincide nombre y
+  descripción con el catálogo).
+- "Familias" → **queda siempre visible, sin gating** — es transversal a más
+  de un módulo (acceso tanto para `vidriera` como para `eventos`) y no tiene
+  clave propia; se consideró funcionalidad esencial, no opcional.
+- Se marcó aparte (fuera de alcance, no se tocó) que el catálogo también
+  tiene `galeria` y `qr` sin ningún ítem de sidebar que los use — mismo
+  estado en el que estaban Eventos/Sponsors antes de la sesión #22.
+
+**CSS**: se agregó `.mm-sidebar-item[hidden] { display: none; }` en
+`admin.css` — sin este override, ocultar un ítem del sidebar vía
+`el.hidden = true` no alcanza, porque `.mm-sidebar-item` ya fija
+`display: block` (mismo bug documentado en el banner de `styles.css`,
+aplicado acá proactivamente en vez de esperar a que apareciera solo).
+
+**`admin.js`**: `loadModulosNav()` se renombró/extendió a
+`aplicarGatingModulos()` — sigue armando los links standalone (Agenda/
+Eventos/Sponsors) como antes, y ahora además oculta/muestra
+`navQueueBtn`/`navOrdenBtn`/`navTextosBtn` según `vidriera` y
+`navStatsBtn` según `estadisticas`. Si la sección default ("Cola de
+aprobación") queda oculta, salta automáticamente a la primera sección
+visible en vez de dejar el panel principal en blanco. **Fail-open**
+si `GET /api/admin/modulos` falla (error de red): no se oculta nada — es
+un gate de visibilidad, no de seguridad (los endpoints ya están protegidos
+por rol), y ocultar la cola de moderación por un error transitorio dejaría
+al admin sin poder hacer su trabajo diario. Ningún endpoint ni lógica
+interna de moderación/orden/textos/estadísticas se tocó.
+
+**Incidente durante la verificación, resuelto en el momento**: al probar el
+gating con un toggle real (`PUT /api/super-admin/academias/:id/modulos`)
+para simular "estadísticas apagado", se detectó que `galeria` y `qr` —
+módulos que esta sesión no tocó en ningún momento— aparecían inactivos para
+Melody Music, cuando dos mensajes antes se habían confirmado activos. No se
+pudo determinar la causa con certeza (no hay ningún código de esta sesión
+que los toque; la hipótesis más probable es una modificación concurrente
+del usuario en `super-admin.html` mientras se trabajaba). Se restauraron
+ambos a `activo: true` de inmediato vía la misma API real, confirmado por
+lectura directa a Supabase — **el resto de la verificación se completó con
+datos sintéticos en vez de más toggles reales**, para no volver a arriesgar
+el estado de producción. Estado final confirmado: `vidriera`/`galeria`/
+`estadisticas`/`qr`/`agenda` activos, `eventos`/`sponsors` inactivos —
+igual que antes del incidente.
+
+**Verificado**:
+- Lógica de decisión (qué ítems quedan visibles) probada con datos
+  sintéticos para: estado real actual, "estadísticas apagado" y el caso
+  extremo "vidriera apagado" — los tres coinciden con lo esperado.
+- Con un admin de prueba descartable (creado y borrado en la misma
+  corrida): `GET /api/admin/modulos` contra el estado ya restaurado
+  devuelve exactamente `vidriera, galeria, estadisticas, qr, agenda` como
+  activos — coincide con lo esperado.
+- `node --check` sobre `admin.js`, balance de tags en `admin.html`: sin
+  errores.
+- Usuarios de prueba (1 super_admin, 1 admin) borrados al final; perfiles
+  restantes en la base son únicamente los 3 reales (`giza`, `Familia Demo`,
+  `supergiza`).
+
+**Sin commit/push en esta sesión** — pedido explícito, queda para que el
+usuario revise primero.
+
+---
+
 ### Sesión 2026-07-12 #23 — Agenda/Eventos/Sponsors conectados al catálogo real de módulos
 
 Pedido explícito: que las tres pantallas de las sesiones #21/#22 dejen de
