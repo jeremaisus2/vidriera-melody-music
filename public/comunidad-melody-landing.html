@@ -334,6 +334,76 @@
     .event-modal-close{top:6px; right:6px;}
   }
 
+  /* ---------- CALENDARIO COMPLETO (modal) ----------
+     Mismo overlay que .event-modal (blur + fondo oscuro), pero el
+     contenido usa la paleta cream/olive/clay de la página en vez del
+     fondo oscuro del lightbox de imagen: es un panel de lectura, no una
+     foto. max-height + overflow-y propio (no depende del auto-resize del
+     iframe — ver postHeight más abajo): el modal nunca necesita que el
+     <iframe> de WordPress cambie de alto mientras está abierto. */
+  .calendar-modal{
+    display:none; position:fixed; inset:0; z-index:1000;
+    background:rgba(8,12,6,.55); backdrop-filter:blur(3px);
+    align-items:center; justify-content:center; padding:24px;
+  }
+  .calendar-modal.open{display:flex;}
+  .calendar-modal-inner{
+    width:100%; max-width:480px; max-height:85vh; overflow-y:auto;
+    background:var(--cream-2); border-radius:20px; padding:28px 26px 24px;
+    box-shadow:0 30px 70px rgba(0,0,0,.35);
+    animation:modalIn .25s ease;
+  }
+  @media (prefers-reduced-motion: reduce){ .calendar-modal-inner{animation:none;} }
+
+  .cal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;}
+  .cal-head-title{font-family:'Playfair Display',serif; font-size:19px; font-weight:600; color:var(--ink);}
+  .cal-close{
+    width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:#fff;
+    font-size:14px; color:#6b6a5e; cursor:pointer; flex:none;
+  }
+  .cal-close:hover{border-color:var(--clay); color:var(--clay);}
+
+  .cal-nav{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .cal-nav-btn{
+    width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:#fff;
+    font-size:15px; color:var(--olive-dark); cursor:pointer;
+  }
+  .cal-nav-btn:hover{background:var(--olive-dark); color:#fff;}
+  .cal-month-label{font-size:14.5px; font-weight:700; color:var(--ink); text-transform:capitalize;}
+
+  .cal-weekdays{display:grid; grid-template-columns:repeat(7,1fr); text-align:center; margin-bottom:4px;}
+  .cal-weekdays span{font-size:10px; font-weight:700; color:#9a9686; text-transform:uppercase; padding:4px 0;}
+
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px;}
+  .cal-day{
+    position:relative; aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+    border-radius:10px; font-size:12.5px; color:var(--ink); background:transparent; border:none;
+    cursor:default;
+  }
+  .cal-day.cal-day-outside{color:#c7c2b3;}
+  .cal-day.cal-day-today{font-weight:700; box-shadow:inset 0 0 0 1.5px var(--clay);}
+  .cal-day.cal-day-has-events{cursor:pointer; font-weight:700; background:#DCE6CE;}
+  .cal-day.cal-day-has-events:hover{background:#cfe0c1;}
+  .cal-day.cal-day-selected{background:var(--olive-dark); color:#fff;}
+  .cal-day-dot{
+    position:absolute; bottom:5px; left:50%; transform:translateX(-50%);
+    width:4px; height:4px; border-radius:50%; background:var(--clay);
+  }
+  .cal-day.cal-day-selected .cal-day-dot{background:#fff;}
+
+  .cal-detail{margin-top:18px; border-top:1px solid var(--line); padding-top:14px;}
+  .cal-detail-empty{font-size:12.5px; color:#9a9686; text-align:center; padding:6px 0;}
+  .cal-detail-item{display:flex; gap:12px; padding:9px 0; border-bottom:1px solid var(--line);}
+  .cal-detail-item:last-child{border-bottom:none;}
+  .cal-detail-date{
+    flex:none; width:42px; height:42px; border-radius:50%; background:var(--olive-dark);
+    color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .cal-detail-date .d{font-size:14px; font-weight:700; line-height:1;}
+  .cal-detail-date .m{font-size:7.5px; letter-spacing:.5px;}
+  .cal-detail-body h5{font-size:13px; font-weight:700; margin-bottom:2px;}
+  .cal-detail-body span{font-size:11px; color:#9a9686;}
+
   @media (max-width: 460px){
     .quick-icons{grid-template-columns:repeat(2,1fr);}
     .news-grid{grid-template-columns:1fr;}
@@ -519,14 +589,14 @@
     <div class="panel">
       <div class="section-head" style="margin-bottom:14px;">
         <h3 style="margin:0;">Agenda</h3>
-        <a href="#" style="font-size:11.5px; color:var(--olive-dark); font-weight:600;">Ver calendario completo →</a>
+        <a href="#" id="verCalendarioCompletoLink" style="font-size:11.5px; color:var(--olive-dark); font-weight:600;">Ver calendario completo →</a>
       </div>
       <div id="agendaList">
         <div class="agenda-row"><div class="agenda-skeleton"></div></div>
         <div class="agenda-row"><div class="agenda-skeleton"></div></div>
         <div class="agenda-row"><div class="agenda-skeleton"></div></div>
       </div>
-      <div style="margin-top:14px;"><button class="btn-solid">Ver toda la agenda</button></div>
+      <div style="margin-top:14px;"><button type="button" class="btn-solid" id="verTodaLaAgendaBtn">Ver toda la agenda</button></div>
     </div>
   </div>
 </div>
@@ -606,6 +676,27 @@
   </div>
 </div>
 
+<div class="calendar-modal" id="calendarModal">
+  <div class="calendar-modal-inner">
+    <div class="cal-head">
+      <span class="cal-head-title display">Agenda completa</span>
+      <button type="button" class="cal-close" id="calendarCloseBtn" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="cal-nav">
+      <button type="button" class="cal-nav-btn" id="calPrevBtn" aria-label="Mes anterior">←</button>
+      <span class="cal-month-label" id="calMonthLabel"></span>
+      <button type="button" class="cal-nav-btn" id="calNextBtn" aria-label="Mes siguiente">→</button>
+    </div>
+    <div class="cal-weekdays">
+      <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-detail" id="calDetail">
+      <p class="cal-detail-empty">Elegí un día marcado para ver sus eventos.</p>
+    </div>
+  </div>
+</div>
+
 <script>
   // Menú mobile
   const hamburgerBtn = document.getElementById('hamburgerBtn');
@@ -654,6 +745,14 @@
   // GET /api/agenda (público, solo activos). Fetch relativo: funciona sin
   // configuración de CORS porque este HTML se sirve desde el mismo origen
   // que la API (Express, express.static sobre esta misma carpeta).
+  //
+  // agendaEventosCache guarda el mismo array que ya trae este fetch para
+  // que el modal de calendario completo (más abajo) lo reuse sin pegarle
+  // una segunda vez a /api/agenda — no hace falta un endpoint ni parámetro
+  // nuevo, la lista completa ya viaja acá (el volumen esperado de una
+  // agenda comunitaria es chico, filtrar por mes en el cliente alcanza).
+  let agendaEventosCache = [];
+
   (function cargarAgenda(){
     const wrap = document.getElementById('agendaList');
     if (!wrap) return;
@@ -661,11 +760,12 @@
     fetch('/api/agenda')
       .then((res) => { if (!res.ok) throw new Error('respuesta no OK'); return res.json(); })
       .then((eventos) => {
-        if (!Array.isArray(eventos) || eventos.length === 0){
+        agendaEventosCache = Array.isArray(eventos) ? eventos : [];
+        if (agendaEventosCache.length === 0){
           wrap.innerHTML = '<p class="agenda-empty">Todavía no hay eventos programados. ¡Volvé pronto!</p>';
           return;
         }
-        wrap.innerHTML = eventos.map((e) => {
+        wrap.innerHTML = agendaEventosCache.map((e) => {
           const fecha = new Date(`${e.fecha}T00:00:00`);
           const dia = fecha.getDate();
           const mes = fecha.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '').toUpperCase();
@@ -689,6 +789,145 @@
       '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
     }[c]));
   }
+
+  // ---------------------------------------------------------------------
+  // Modal de calendario completo (vista mensual tipo Google Calendar)
+  //
+  // Vanilla JS, sin librería: la lógica de un calendario mensual es simple
+  // (grid de 7 columnas, offset de días fuera de mes) y así queda 100%
+  // re-estilable con la misma paleta cream/olive/clay del resto de la
+  // página, sin pelear contra el CSS de un componente de terceros.
+  //
+  // max-height:85vh + overflow-y:auto en .calendar-modal-inner (ver CSS):
+  // el modal tiene su propio scroll interno, independiente del mecanismo
+  // de auto-resize del <iframe> de abajo — nunca necesita que WordPress
+  // cambie la altura del iframe mientras está abierto, ni al abrir ni al
+  // cerrar. Se eligió esta opción (1 de las 2 propuestas) por ser más
+  // simple y no depender de que el padre reaccione bien a un postMessage
+  // de altura repentino.
+  // ---------------------------------------------------------------------
+  const calendarModal = document.getElementById('calendarModal');
+  const calGrid = document.getElementById('calGrid');
+  const calMonthLabel = document.getElementById('calMonthLabel');
+  const calDetail = document.getElementById('calDetail');
+
+  const hoy = new Date();
+  let calAnio = hoy.getFullYear();
+  let calMes = hoy.getMonth(); // 0-11
+  let calDiaSeleccionado = null; // "YYYY-MM-DD" o null
+
+  function eventosPorDia(){
+    const mapa = new Map();
+    agendaEventosCache.forEach((e) => {
+      if (!mapa.has(e.fecha)) mapa.set(e.fecha, []);
+      mapa.get(e.fecha).push(e);
+    });
+    return mapa;
+  }
+
+  function renderCalendario(){
+    const mapa = eventosPorDia();
+    calMonthLabel.textContent = new Date(calAnio, calMes, 1)
+      .toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+
+    const primerDiaSemana = (new Date(calAnio, calMes, 1).getDay() + 6) % 7; // 0=lunes
+    const diasEnMes = new Date(calAnio, calMes + 1, 0).getDate();
+    const diasMesAnterior = new Date(calAnio, calMes, 0).getDate();
+    const hoyStr = formatoFecha(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+
+    const celdas = [];
+    for (let i = primerDiaSemana - 1; i >= 0; i--){
+      celdas.push({ dia: diasMesAnterior - i, fuera: true });
+    }
+    for (let d = 1; d <= diasEnMes; d++){
+      celdas.push({ dia: d, fuera: false, fechaStr: formatoFecha(calAnio, calMes, d) });
+    }
+    while (celdas.length % 7 !== 0){
+      celdas.push({ dia: celdas.length - (primerDiaSemana + diasEnMes) + 1, fuera: true });
+    }
+
+    calGrid.innerHTML = celdas.map((c) => {
+      if (c.fuera) return `<div class="cal-day cal-day-outside">${c.dia}</div>`;
+      const eventosDelDia = mapa.get(c.fechaStr);
+      const clases = ['cal-day'];
+      if (c.fechaStr === hoyStr) clases.push('cal-day-today');
+      if (eventosDelDia) clases.push('cal-day-has-events');
+      if (c.fechaStr === calDiaSeleccionado) clases.push('cal-day-selected');
+      return `
+        <button type="button" class="${clases.join(' ')}" data-fecha="${c.fechaStr}" ${eventosDelDia ? '' : 'disabled'}>
+          ${c.dia}${eventosDelDia ? '<span class="cal-day-dot"></span>' : ''}
+        </button>`;
+    }).join('');
+
+    calGrid.querySelectorAll('.cal-day-has-events').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        calDiaSeleccionado = btn.dataset.fecha;
+        renderCalendario();
+        renderDetalleDia(mapa.get(calDiaSeleccionado));
+      });
+    });
+
+    if (calDiaSeleccionado && mapa.has(calDiaSeleccionado)){
+      renderDetalleDia(mapa.get(calDiaSeleccionado));
+    } else {
+      calDiaSeleccionado = null;
+      calDetail.innerHTML = '<p class="cal-detail-empty">Elegí un día marcado para ver sus eventos.</p>';
+    }
+  }
+
+  function renderDetalleDia(eventosDelDia){
+    calDetail.innerHTML = eventosDelDia.map((e) => {
+      const fecha = new Date(`${e.fecha}T00:00:00`);
+      const dia = fecha.getDate();
+      const mes = fecha.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '').toUpperCase();
+      const hora = String(e.hora ?? '').slice(0, 5);
+      return `
+        <div class="cal-detail-item">
+          <div class="cal-detail-date"><div class="d">${dia}</div><div class="m">${mes}</div></div>
+          <div class="cal-detail-body">
+            <h5>${escapeHtmlAgenda(e.titulo)}</h5>
+            <span>${escapeHtmlAgenda(e.lugar)} · ${hora} hs</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function formatoFecha(anio, mes, dia){
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${anio}-${pad(mes + 1)}-${pad(dia)}`;
+  }
+
+  function abrirCalendarModal(e){
+    if (e) e.preventDefault();
+    calAnio = hoy.getFullYear();
+    calMes = hoy.getMonth();
+    calDiaSeleccionado = null;
+    renderCalendario();
+    calendarModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function cerrarCalendarModal(){
+    calendarModal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('verTodaLaAgendaBtn')?.addEventListener('click', abrirCalendarModal);
+  document.getElementById('verCalendarioCompletoLink')?.addEventListener('click', abrirCalendarModal);
+  document.getElementById('calendarCloseBtn').addEventListener('click', cerrarCalendarModal);
+  document.getElementById('calPrevBtn').addEventListener('click', () => {
+    calMes--; if (calMes < 0){ calMes = 11; calAnio--; }
+    renderCalendario();
+  });
+  document.getElementById('calNextBtn').addEventListener('click', () => {
+    calMes++; if (calMes > 11){ calMes = 0; calAnio++; }
+    renderCalendario();
+  });
+  calendarModal.addEventListener('click', (e) => {
+    if (e.target === calendarModal) cerrarCalendarModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && calendarModal.classList.contains('open')) cerrarCalendarModal();
+  });
 
   // Auto-resize para embeber esta página en un <iframe> (ej. WordPress/
   // Elementor): postea la altura real del contenido al parent. Se vuelve a

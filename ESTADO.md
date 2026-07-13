@@ -208,6 +208,74 @@ real (`giza@bariloche.com`, Melody Music): login contra Supabase Auth OK, y
 
 ---
 
+### Sesión 2026-07-13 #26 — Modal de calendario mensual en comunidad-melody-landing.html
+
+Pedido: un calendario mensual tipo Google Calendar (grid, navegación mes
+anterior/siguiente, días marcados con evento, detalle al click) que se abre
+en modal desde "Ver toda la agenda".
+
+**Investigación previa (pedida explícitamente)**: se encontraron **dos**
+elementos muertos en el mismo panel "Agenda" (`href="#"`/sin handler): el
+botón "Ver toda la agenda" (coincide exacto con el pedido) y, arriba, el
+link "Ver calendario completo →". Se confirmó con el usuario antes de
+tocar nada — ambos quedaron enganchados al mismo modal.
+
+**Sin endpoint nuevo, tal como se pidió priorizar**: el modal reusa el
+mismo `GET /api/agenda` que ya carga el panel chico de la landing —
+`cargarAgenda()` ahora guarda el array completo en `agendaEventosCache`
+(variable de módulo nueva) para que el modal lo filtre por mes del lado
+del cliente, sin pegarle una segunda vez a la API. Alcanza de sobra para
+el volumen esperado de una agenda comunitaria (no miles de filas).
+
+**Vanilla JS, sin librería** (pedido explícito si la lógica no era
+compleja — no lo es): grid de 7 columnas (semana Lunes-Domingo), cálculo
+de offset de días del mes anterior/siguiente para completar la grilla,
+punto/resaltado en los días con evento(s), click en un día marcado
+muestra el detalle (título/lugar/hora, todos los eventos si hay más de
+uno el mismo día) debajo del grid. Verificado el cálculo de días/offsets
+con casos de borde (mes que empieza lunes/domingo, febrero bisiesto y no
+bisiesto, meses de 30/31 días) corridos en Node antes de dar por buena la
+lógica — todos calzaron.
+
+**Restricción del iframe sin scroll — se eligió la opción 1 (la
+priorizada en el pedido)**: `.calendar-modal-inner` tiene
+`max-height:85vh; overflow-y:auto` propio, independiente del mecanismo de
+auto-resize del `<iframe>` de WordPress. El modal es `position:fixed`
+(no empuja el resto del documento), así que abrirlo/cerrarlo no dispara
+ningún cambio de `document.body.scrollHeight` — el `ResizeObserver` que ya
+postea la altura al `parent` (sesión #21) queda completamente al margen,
+no hizo falta tocarlo ni agregar un segundo `postMessage` para agrandar el
+iframe al abrir el modal (la opción 2 del pedido, descartada por más
+simple según la prioridad indicada).
+
+**Identidad visual**: misma paleta cream/olive/clay + Playfair Display de
+toda la página — el día de hoy se marca con un borde clay, los días con
+evento con un tinte oliva (`#DCE6CE`, el mismo tono ya usado en
+`.wall-tag.agradezco` de esta misma página, reusado a propósito para
+consistencia) y un punto clay, el día seleccionado queda oliva sólido.
+Mismo patrón de overlay con blur que el lightbox de imagen ya existente
+(`.event-modal`), pero con el panel interior claro (cream) en vez de
+oscuro, porque acá es contenido de lectura, no una foto.
+
+**Verificado**:
+- Balance de tags (`div`/`button`/`span`) y sintaxis del bloque
+  `<script>` completo (`node --check`): sin errores.
+- Lógica de fechas/offsets de la grilla probada en Node con 5 casos de
+  borde (julio 2026, febrero 2026 y 2028, noviembre 2026, agosto 2027):
+  cantidad de celdas siempre múltiplo de 7, primer/último día real
+  coincide con el día de la semana real en cada caso.
+- Servidor real levantado: `GET /api/agenda` devuelve los 2 eventos de
+  prueba reales que ya había cargados en Supabase ("Concierto de prueba"
+  18/07/2026, "Concierto de Canto" 23/07/2026, ambos en julio — el mes que
+  se ve por default al abrir el modal); se simuló el mapeo evento→día con
+  esos datos reales y marcó correctamente los días 18 y 23.
+- `comunidad-melody-landing.html` sigue sirviendo 200 completo.
+
+**Sin commit/push en esta sesión** — pedido explícito, queda para que el
+usuario revise primero.
+
+---
+
 ### Sesión 2026-07-12 #25 — Baja de la vidriera pública vieja + pantalla de acceso en la raíz
 
 Dos pedidos relacionados con la puerta de entrada del sitio
